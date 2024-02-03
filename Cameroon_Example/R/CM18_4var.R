@@ -1,0 +1,27 @@
+library(devtools)
+library(EconomicClusters) #devtools::install_github("Lauren-Eyler/EconomicClusters")
+library(haven)
+library(nloptr)
+#library(weights)
+library(parallelDist) #install.packages('parallelDist')
+library(foreach)
+library(doParallel)
+#library(survey) #install.packages('survey')
+library(Hmisc)
+library(descr) #install.packages('descr')
+library(tidyverse)
+library(car) #install.packages('car')
+library(stats)
+library(future) #install.packages('future')
+
+source("~/EC_fxns/EC_fxns.R")
+
+nCores <- as.numeric(Sys.getenv('SLURM_CPUS_ON_NODE'))
+registerDoParallel(nCores)
+
+data_clean <- readRDS('~/cleanedDHSdata/CM18_clean.rds')
+
+output <- calcASW(data_clean, num.in.cluster = 4, nCores)
+write.csv(output[[1]],"~/EC_output/CM18_ASW_4cluster.csv")
+print(output[[2]])
+print("DONE")
