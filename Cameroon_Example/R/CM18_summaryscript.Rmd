@@ -10,7 +10,7 @@ always_allow_html: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = F, cache = T)
+knitr::opts_chunk$set(echo = F, cache = F)
 ```
 
 ```{r install-packages, message=F, warning=F}
@@ -160,9 +160,8 @@ num_cluster <- 5
 nCores <- parallel::detectCores()
 
 # Change paths to DHS files here
-hh_path <- "~/Box/Project 1/DHS Data/CAMEROON (CM) 2018/CM_2018_DHS_01312023_2251_171933/CMHR71DT/CMHR71FL.DTA"
-ind_path <- "~/Box/Project 1/DHS Data/CAMEROON (CM) 2018/CM_2018_DHS_01312023_2251_171933/CMIR71DT/CMIR71FL.DTA"
-tablepng_path <- "../summoutput_files/"
+hh_path <- "../data/CMHR71DT/CMHR71FL.DTA"
+ind_path <- "../data/CMIR71DT/CMIR71FL.DTA"
 #########
 
 # Path to the cleaned DHS file
