@@ -1,27 +1,34 @@
-library(devtools)
-library(EconomicClusters) #devtools::install_github("Lauren-Eyler/EconomicClusters")
-library(haven)
-library(nloptr)
-#library(weights)
-library(parallelDist) #install.packages('parallelDist')
-library(foreach)
+##########################################################################################
+# 2. Run clustering procedure
+# INPUT: Cleaned .rds file from "_cleandata.R"
+# OUTPUT: .csv file containing ASW values for each clustering result: "_ASW_#cluster.csv"
+# This script is designed to be used on a clustering node for faster parallel computing, 
+# but can be run on a local device as well; be sure to comment/uncomment the relevant code
+##########################################################################################
+
+library(parallel)
 library(doParallel)
-#library(survey) #install.packages('survey')
-library(Hmisc)
-library(descr) #install.packages('descr')
-library(tidyverse)
-library(car) #install.packages('car')
-library(stats)
-library(future) #install.packages('future')
+source("./R/EC_user_functions.R")
 
-source("~/EC_fxns/EC_fxns.R")
+# Country-code
+cc <- "CM18"
 
-nCores <- as.numeric(Sys.getenv('SLURM_CPUS_ON_NODE'))
-registerDoParallel(nCores)
+# Set the number of asset variables to cluster on (default is 4)
+num_cluster <- 4
 
-data_clean <- readRDS('~/cleanedDHSdata/CM18_clean.rds')
+# If running this script on an external cluster:
+# nCores <- as.numeric(Sys.getenv('SLURM_CPUS_ON_NODE'))
+# doParallel::registerDoParallel(nCores)
 
-output <- calcASW(data_clean, num.in.cluster = 4, nCores)
-write.csv(output[[1]],"~/EC_output/CM18_ASW_4cluster.csv")
-print(output[[2]])
+# If running this script on your local device:
+nCores <- as.numeric(parallel::detectCores())
+doParallel::registerDoParallel(nCores)
+
+dataclean <- readRDS(paste0("./data/", cc, "_clean.rds"))
+
+output <- calcASW(dataclean, num.in.cluster = num_cluster, nCores)
+
+# If running on an external cluster, change output directory accordingly
+write.csv(output[[1]], paste0("./output/", cc, "_ASW_", num_cluster,"cluster.csv"))
+print(output[[2]]) # Print runtime
 print("DONE")
