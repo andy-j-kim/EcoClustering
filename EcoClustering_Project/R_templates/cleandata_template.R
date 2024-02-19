@@ -72,6 +72,8 @@ dataclean <- dataset %>%
   #6
   dplyr::select(-which(purrr::map_lgl(., detect_imbalance, max_imbalance)), wt) %>% 
   #7
-  dplyr::select(-c(hv246a, hv246b, hv246e, hv246g))
+  dplyr::select(-c(hv246a, hv246b, hv246e, hv246g)) %>% 
+  # move weights to front of the dataset
+  dplyr::select(wt, everything())
 
 saveRDS(dataclean, file = paste0("./data/", cc, "_clean.rds"))

@@ -1,14 +1,16 @@
 ##########################################################################################
 # 2. Run clustering procedure
 # INPUT: Cleaned .rds file from "_cleandata.R"
-# OUTPUT: .csv file containing ASW values for each clustering result: "_ASW_#cluster.csv"
+# OUTPUT: .csv file containing ASW values for each clustering result: "ASW_cc_#cluster.csv"
 # This script is designed to be used on a clustering node for faster parallel computing, 
 # but can be run on a local device as well; be sure to comment/uncomment the relevant code
 ##########################################################################################
 
 library(parallel)
 library(doParallel)
-source("./R/EC_user_functions.R")
+
+# Change if clustering node directory is different
+source("./input_files/EC_user_functions.R")
 
 # Country-code
 cc <- "CM18"
@@ -24,11 +26,12 @@ num_cluster <- 4
 nCores <- as.numeric(parallel::detectCores())
 doParallel::registerDoParallel(nCores)
 
-dataclean <- readRDS(paste0("./data/", cc, "_clean.rds"))
+# read cleaned data from correct directory (different if on cluster)
+dataclean <- readRDS(paste0("./EcoClustering/data/cleaned/", cc, "_clean.rds"))
 
 output <- calcASW(dataclean, num.in.cluster = num_cluster, nCores)
 
 # If running on an external cluster, change output directory accordingly
-write.csv(output[[1]], paste0("./output/", cc, "_ASW_", num_cluster,"cluster.csv"))
+saveRDS(output[[1]], paste0("./EcoClustering/data/asw/", "ASW_", cc, "_", num_cluster, "cluster.rds"))
 print(output[[2]]) # Print runtime
 print("DONE")
