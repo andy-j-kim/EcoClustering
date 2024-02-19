@@ -7,7 +7,7 @@
 
 library(haven)
 library(tidyverse)
-source("./R/EC_user_functions.R")
+source("./input_files/EC_user_functions.R")
 
 ##########################################################################################
 # IMPORTANT: Check "Standard_Recode_Manual_for_DHS7_Recode7_DHS_10Sep2018_DHSG4.pdf"
@@ -58,13 +58,23 @@ max_imbalance <- 0.1
 # 6. Select variables that meet balance criteria
 # 7. (Optional) Filter out any additional variables by hand 
 
+# variable selection
 dataclean <- dataset %>% 
+  #1
   dplyr::mutate(wt = ifelse(hv012==0, hv013, hv012)*hv005/1e+06) %>% 
+  #2
   dplyr::select(-contains('_')) %>% 
-  dplyr::select(wt, hv000, dplyr::starts_with(c('hv2', 'sh1'))) %>% 
+  #3
+  dplyr::select(wt, hv000, dplyr::starts_with(c('hv2', 'sh1'))) %>%
+  #4
   preprocess_dhsfactors() %>% 
+  #5
   dplyr::select(where(~sum(is.na(.x))/length(.x) < max_prop_NA)) %>%
+  #6
   dplyr::select(-which(purrr::map_lgl(., detect_imbalance, max_imbalance)), wt) %>% 
-  dplyr::select(-c(hv246a, hv246b, hv246e, hv246g))
+  #7
+  dplyr::select(-c(hv246a, hv246b, hv246e, hv246g)) %>% 
+  # move weights to front of the dataset
+  dplyr::select(wt, everything())
 
 saveRDS(dataclean, file = paste0("./data/", cc, "_clean.rds"))
