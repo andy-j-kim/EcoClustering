@@ -1,0 +1,661 @@
+---
+title: "Economic Clustering Summary Report: Cameroon 2018"
+author: "Andy Kim"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  word_document:
+    reference_docx: summaryscript_style.docx
+
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, cache = F)
+```
+
+```{r install-packages, message=F, warning=F}
+library(tidyverse)
+library(parallelDist)
+library(haven)
+library(knitr)
+library(kableExtra)
+library(gdtools)
+```
+
+```{r user-functions}
+# Functions (run these)
+top_clus_table <- function(asw_mat, n){
+  mat <- asw_mat %>% 
+    arrange(desc(ASW)) %>%
+    slice(1:n)
+  
+  mat2 <- select(mat,-c(ASW))
+  
+  #note: need to change 4 if diff number of variables used
+  new_mat <- matrix(data = NA, nrow = n, ncol = 4)
+  
+  names <- colnames(mat2)
+  
+  for(i in 1:nrow(mat)){
+    new_mat[i,] <- names[which(!is.na(mat2[i,]))]
+  }
+  
+  mat3 <- as.data.frame(cbind(mat[,1],new_mat))
+  
+  return(mat3)
+}
+print_proptable <- function(proptable){
+  if(length(proptable) == 2){
+    labels <- names(proptable)
+    values <- proptable
+    
+    value1 <- values[grepl("1", labels)] %>% 
+      round(3) %>% 
+      `*`(100)
+    
+    paste0("Binary, ", value1, "% 1s (or yes)")
+  } else if(length(proptable) > 8){
+    #labels <- names(proptable)
+    values <- proptable
+    
+    paste0("Binary, Mode: ", names(which.max(values)))
+  }
+  else{
+    labels <- names(proptable)
+    values <- proptable %>% 
+      round(3) %>% 
+      `*`(100)
+    
+    l_v <- data.frame(values)
+    f_labels <- paste0(0:(length(labels) - 1), " (", l_v[,1], ")") # attaching factors
+    f_v_labels <- paste0(f_labels, " = ", values, "%", collapse = ", \n " )
+    
+    paste0("Categorical, ", f_v_labels)
+  }
+}
+clus_config <- function(data, i, tab, nCores){
+  vars <- as.vector(as.matrix(tab[i,2:5]))
+  labels <- plyr::mapvalues(vars,
+                            from = var_to_label_df$rowname,
+                            to = var_to_label_df$V1, 
+                            warn_missing = F)
+  
+  subset_data <- data %>% select("wt", vars) %>% 
+    mutate(clus = paste0(.[,c(tab[i,2])], 
+                         .[,c(tab[i,3])],
+                         .[,c(tab[i,4])],
+                         .[,c(tab[i,5])]))
+  
+  out <- clusNode(subset_data,4,nCores)
+  subset_data$node <- out[[1]]$clustering %>% 
+    unlist() %>% 
+    as.character() %>% 
+    as.factor() %>% 
+    as.numeric()
+  
+  rel_prop <- as.matrix(table(subset_data$node)/nrow(subset_data)) %>% 
+    as.data.frame() %>% 
+    rownames_to_column() %>%
+    `colnames<-`(c("node", "prop"))
+  
+  grouped <- subset_data %>% 
+    group_by(clus) %>%
+    summarise(node = unique(node),
+              var1 = first(!!as.name(vars[1])),
+              var2 = first(!!as.name(vars[2])),
+              var3 = first(!!as.name(vars[3])),
+              var4 = first(!!as.name(vars[4]))) %>% 
+    arrange(node) %>% 
+    select(!clus) %>% 
+    merge(rel_prop) %>% 
+    mutate(prop = round(prop*100, 2)) %>% 
+    mutate(prop = replace(prop, duplicated(prop), NA))
+  
+  colnames(grouped) <- c("Cluster Group", labels, "Proportion (%)")
+  
+  return(grouped)
+}
+clusNode <- function(data, num.in.cluster, ncores){
+  
+  ASW<-vector()
+  combi<-list()
+  parD<-list()
+  wcKMR<-list()
+  
+  if (class(unlist(data[,1]))=="numeric"){
+    wt<-unlist(data[,1])
+    data<-data[,-1]
+  } else {
+    wt<-rep(1, nrow(data))
+  }
+  
+  p <- ncol(data)
+  col_cat<-seq(1,p,1)
+  combn<-utils::combn(c(1:p),num.in.cluster)
+  col_indx=matrix(c("NULL"), ncol(combn), p, byrow=FALSE)
+  for (i in 1:ncol(combn)){
+    col_indx[i,]<- t(is.element(col_cat, combn[,i]))
+    col_indx[i,][col_indx[i,]==FALSE]<- NA
+    colnames(col_indx)=colnames(data)
+  }
+  
+  combi<-data[,!is.na(col_indx[i,])]
+  combi_mat<-data.matrix(combi)
+  parD<-parDist(combi_mat, method =  "hamming", threads = ncores) 
+  wcKMR<-WeightedCluster::wcKMedRange(parD, kvals=(5), weights=wt)
+  return(list(wcKMR,combi_mat))
+}
+```
+
+```{r}
+#### Remember to change the title of the document to reflect the correct Country + Year
+# Change country-year here
+# e.g. AO11 BF1718 BN1718 BU1617 CD1314 CM18 ET19 GA12 GH19 GM1920 GN18 KM12 SL19 SN19 TZ17 ZA16
+
+#########
+cy <- "CM18"
+num_var <- 4 # number of variables used to generate clusters
+num_cluster <- 5
+nCores <- parallel::detectCores()
+
+# Change paths to DHS files here
+hh_path <- "../data/CMHR71DT/CMHR71FL.DTA"
+ind_path <- "../data/CMIR71DT/CMIR71FL.DTA"
+#########
+
+# Path to the cleaned DHS file
+dhspath <- paste0("../cleanedDHSdata/", cy, "_clean.rds")
+
+# Path to the ASW output file
+aswpath <- paste0("../asw_files/", cy, "_ASW_", num_var, "cluster.rds")
+
+dhs <- readRDS(dhspath)
+asw_mat <- readRDS(aswpath) %>% dplyr::select(-X)
+
+# Assign missing labels to multicat variables
+for(i in 1:length(Hmisc::label(dhs))){
+  if(Hmisc::label(dhs)[i] == ""){
+    Hmisc::label(dhs[,i]) <- names(dhs)[i]
+  }
+}
+
+# Create dictionary of labels to variable names
+var_to_label_df <- data.frame(lapply(dhs, attr, "label")) %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  rownames_to_column()
+```
+
+# Summary of Data
+
+```{r, eval = F}
+paste0("Country Code-year: ", cy)
+paste0("Number of observations: ", nrow(dhs))
+paste0("Number of clusters: ", num_cluster)
+paste0("Number of variables used: ", ncol(dhs) - 1)
+paste0("Distance used: Hamming")
+paste0("Variables used in the algorithm: ", paste0(names(dhs)[-1], collapse = ", "))
+```
+**Country Code-year:** `r cy`
+
+**Number of observations:** `r nrow(dhs)`
+
+**Number of clusters:** `r num_cluster`
+
+**Number of variables used:** `r ncol(dhs) - 1`
+
+**Distance used:** Hamming
+
+**Variables used in the algorithm:** `r paste0(names(dhs)[-1], collapse = ", ")`
+
+#
+\pagebreak
+
+# Top Variable Groupings (Sorted by ASW)
+
+```{r top-cluster}
+## Top cluster table
+tab1 <- top_clus_table(asw_mat, 10)
+
+# Create ASW dataframe using labels, not var names
+tab1_labs <- apply(tab1[,2:5], 2, function(x){
+  plyr::mapvalues(x, from = var_to_label_df$rowname, to = var_to_label_df$V1, warn_missing = F)
+})
+
+tab1_asw <- round(as.numeric(tab1[,1]),4)
+tab1_clean <- cbind(c(1:length(tab1_asw)), tab1_asw, tab1_labs) %>% 
+  `colnames<-`(c("Group", "ASW", "Var. 1", "Var. 2", "Var. 3", "Var. 4"))
+
+# knitr::kable(tab1_clean, booktabs = T) %>%
+#   kable_styling(full_width = T) %>% 
+#   row_spec(1:nrow(tab1_clean), hline_after = T) %>% 
+#   column_spec(1, "1cm")
+
+
+tab1_clean.f <- tab1_clean %>% 
+  as.data.frame() %>% 
+  flextable::flextable() %>% 
+  flextable::autofit() %>% 
+  flextable::set_table_properties(layout = "autofit")
+
+knitr::knit_print(tab1_clean.f)
+```
+
+#
+\pagebreak
+
+# Marginal Distributions
+
+```{r}
+##### Marginal Distributions 
+unq.vars <- unique(as.vector(as.matrix(tab1[,-1])))
+
+props <- subset(dhs, select = unq.vars) %>% 
+  lapply(table) %>% 
+  lapply(prop.table) %>% 
+  lapply(print_proptable) %>% 
+  as.data.frame() %>% t()
+
+descs <- lapply(dhs, attr, "label")[unq.vars] %>% unlist()
+
+props_top_unsorted <- table(unlist(tab1[,-1]))*10
+props_top_sorted <- paste0(props_top_unsorted[match(unq.vars, names(props_top_unsorted))], "%")
+
+marg_dist_table <- cbind(unq.vars, descs, props_top_sorted, props) %>% data.frame()
+names(marg_dist_table) <- c("Variable", "Description", "% Time in Top Clusters", "Distribution")
+rownames(marg_dist_table) = NULL
+
+
+# knitr::kable(marg_dist_table, booktabs = T) %>%
+#   kable_styling(full_width = T) %>% 
+#   row_spec(1:nrow(marg_dist_table), hline_after = T) %>% 
+#   column_spec(1, "1cm")
+marg_dist_table.f <- marg_dist_table %>% 
+  as.data.frame() %>% 
+  flextable::flextable() %>% 
+  flextable::autofit() %>% 
+  flextable::set_table_properties(layout = "autofit")
+
+knitr::knit_print(marg_dist_table.f)
+```
+
+```{r, warning=FALSE}
+#### Cluster Configurations
+group1 <- clus_config(data = dhs, i=1, tab=tab1, nCores = nCores)
+#group2 <- clus_config(data = dhs, i=2, tab=tab1, nCores = nCores)
+#group3 <- clus_config(data = dhs, i=3, tab=tab1, nCores = nCores)
+```
+
+#
+\pagebreak
+
+# Cluster \#1 Configuration
+
+```{r, warning=FALSE}
+options(knitr.kable.NA = '')
+# knitr::kable(group1, booktabs = T) %>%
+#   kable_styling(full_width = T) %>% 
+#   row_spec(1:nrow(group1), hline_after = T) %>% 
+#   column_spec(1, "1cm")
+group1.f <- group1 %>% 
+  as.data.frame() %>% 
+  flextable::flextable() %>% 
+  flextable::autofit() %>% 
+  flextable::set_table_properties(layout = "autofit")
+
+knitr::knit_print(group1.f)
+```
+
+
+#
+\pagebreak
+
+# Validation Tables
+
+```{r, warning=F, message=F, results='hide'}
+source("../EC_fxns_040923.R")
+
+ind <- haven::read_dta(ind_path) 
+
+hh <- haven::read_dta(hh_path) %>% 
+  mutate(wt = ifelse(hv012 == 0, hv013, hv012)*hv005/1e+06) %>% 
+  preprocess_dhsfactors_adj()
+
+
+ind_vars <- c("v001", "v002", "v005")
+
+if(c("v149") %in% names(ind)){
+  ind_vars <- c(ind_vars, "v149")
+}
+
+if(all(c("v201", "v206", "v207") %in% names(ind))){
+  ind$deceas = ifelse(!is.na((ind$v206+ind$v207)/ind$v201), (ind$v206+ind$v207)/ind$v201, 0)
+  ind$de_cat = cut(ind$deceas, 
+                 breaks = c(-0.01,0.00001,0.3399,0.6699,1),
+                 labels = c("0%", "1-33%", "34-66%", "67+%"))
+  ind_vars <- c(ind_vars, "deceas", "de_cat")
+}
+
+if(all(c("v326") %in% names(ind))){
+  ind$health = ind$v326 %>%
+    str_replace_all('1[0-9]', '0') %>%
+    str_replace_all('2[0-9]', '1') %>%
+    str_replace_all('3[0-9]', '2') %>%
+    str_replace_all('9[0-9]', '2')
+  ind_vars <- c(ind_vars, "health")
+}
+
+hh_subset <- hh %>%
+  dplyr::select(hv001, hv002, wt, all_of(unq.vars)) #normally v106 is ha66_01
+
+ind_subset <- ind %>%
+  dplyr::select(all_of(ind_vars))
+
+# Merge the datasets
+merged_data <- merge(hh_subset, ind_subset, 
+                     by.x=c("hv001", "hv002"), 
+                     by.y=c("v001", "v002"), all.y=FALSE)
+
+vars <- unlist(as.vector(tab1[1,-1])) # Using variables from the top variable grouping
+
+subset_data <- merged_data %>% 
+  select(wt, all_of(vars)) 
+
+# rerun algorithm on the subset
+out <- clusNode(subset_data, 4, ncores = nCores)
+
+# collect clustering IDs for each individual
+merged_data$id <- out[[1]]$clustering %>% 
+  unlist() %>% 
+  as.factor() %>% 
+  as.numeric()
+```
+
+
+```{r, warning=F, message=F, results='hide'}
+
+if(all(c("de_cat") %in% names(merged_data))){
+  dectab <- merged_data %>%
+    tabyl(id, de_cat, show_missing_levels = FALSE, show_na = FALSE)
+
+  ordered_decid <- cbind(dectab[,1],prop.table(as.matrix(dectab[,2:5]), 1)) %>% 
+    as.data.frame() %>% 
+    arrange(desc(`0%`)) %>% 
+    select(V1) %>% 
+    unlist()
+  
+  dectab <- dectab[match(ordered_decid, dectab$id),]
+  
+  dectab2 <- cbind(dectab[,1:2], rowSums(dectab[,3:5])) %>% 
+  `colnames<-`(c("id", "0%", ">0%"))
+
+  ordered_decid2 <- cbind(dectab2[,1],prop.table(as.matrix(dectab2[,2:3]), 1)) %>% 
+    as.data.frame() %>% 
+    arrange(desc(`0%`)) %>% 
+    select(V1) %>% 
+    unlist()
+  
+  dectab2 <- dectab2[match(ordered_decid2, dectab2$id),]
+}
+
+if(all(c("v149") %in% names(merged_data))){
+  edutab <- merged_data %>%
+    tabyl(id, v149, show_missing_levels = FALSE, show_na = FALSE)
+
+  # Sorted by weighted average across each row
+  ordered_eduid <- cbind(c(1:5), prop.table(as.matrix(edutab[,2:7]), 1) %*% diag(c(0:5)) %>% rowSums()) %>% 
+    as.data.frame() %>% 
+    arrange(desc(V2))
+  
+  edutab <- edutab[match(ordered_eduid$V1, edutab$id),]
+}
+
+if(all(c("health") %in% names(merged_data))){
+  pritab <- merged_data %>%
+   tabyl(id, health, show_missing_levels = FALSE, show_na = FALSE)
+  
+  ordered_priid <- cbind(pritab[,1],prop.table(as.matrix(pritab[,2:4]), 1)) %>% 
+    as.data.frame() %>% 
+    arrange(`0`) %>% 
+    select(V1) %>% 
+    unlist()
+  
+  pritab <- pritab[match(ordered_priid, pritab$id),]
+}
+
+
+```
+
+## a.1) Using Children Deceased (Sorted by proportion of 0%)
+
+
+```{r, warning=F, message=F}
+if(exists("dectab")){
+  dectab.f <- dectab %>%
+  adorn_totals(where = "row") %>%
+  adorn_percentages(denominator = "row") %>%
+  adorn_pct_formatting() %>% 
+  adorn_ns(position = "front") %>%
+  adorn_title(
+    row_name = "Cluster ID",
+    col_name = "Children Deceased",
+    placement = "combined") %>%
+  flextable::flextable() %>% 
+  flextable::footnote(i = 1, j = 1,
+           ref_symbols = "*",
+           value = as_paragraph(paste("The chi-squared p-value is", 
+                                      round(chisq.test(dectab)$p.val,4)))) %>%
+  flextable::autofit() %>% 
+  flextable::set_table_properties(layout = "autofit")
+
+knitr::knit_print(dectab.f)
+}
+
+
+```
+
+## a.2) Aggregating proportions greater than 0%
+
+\newline
+
+```{r, warning=F, message=F}
+if(exists("dectab2")){
+  dectab2.f <- dectab2 %>%
+    adorn_totals(where = "row") %>%
+    adorn_percentages(denominator = "row") %>%
+    adorn_pct_formatting() %>% 
+    adorn_ns(position = "front") %>%
+    adorn_title(
+      row_name = "Cluster ID",
+      col_name = "Children Deceased",
+      placement = "combined") %>%
+    flextable::flextable() %>% 
+    flextable::footnote(i = 1, j = 1,
+             ref_symbols = "*",
+             value = as_paragraph(paste("The chi-squared p-value is", 
+                                        round(chisq.test(dectab2)$p.val,4)))) %>%
+    flextable::autofit()  %>% 
+    flextable::set_table_properties(layout = "autofit")
+  
+  knitr::knit_print(dectab2.f)
+}
+```
+
+#
+\pagebreak
+
+## b) Using Individual Education Level Attained (Sorted by weighted average by row)
+
+\newline
+
+```{r, warning=F, message=F}
+if(exists("edutab")){
+  edutab.f <- edutab %>%
+    adorn_totals(where = "row") %>%
+    adorn_percentages(denominator = "row") %>%
+    adorn_pct_formatting() %>% 
+    adorn_ns(position = "front") %>%
+    adorn_title(
+      row_name = "Cluster ID",
+      col_name = "Education",
+      placement = "combined") %>% 
+    mutate(`W. Avg.` = round(c(ordered_eduid$V2, 
+                         sum(prop.table(as.matrix(colSums(edutab[,2:7]),1)) * 0:5)),2)) %>%
+    flextable::flextable() %>% 
+    flextable::footnote(i = 1, j = 1, ref_symbols = "*",
+                        value = as_paragraph(paste("The chi-squared p-value is",
+                                        round(wtd.chi.sq(merged_data$id,
+                                                         merged_data$v149,
+                                                         weight = merged_data$v005)[3],4)))) %>%
+    flextable::footnote(i = 1, j = 1, ref_symbols = "a",
+                        value = as_paragraph(paste("0=none,1=incomplete primary, 2=primary, 3=incomplete secondary, 4=secondary, 5=higher"))) %>% 
+    flextable::autofit() %>% 
+    flextable::set_table_properties(layout = "autofit")
+  
+  knitr::knit_print(edutab.f)
+}
+```
+
+#
+\pagebreak
+
+## c) Using Primary Healthcare Source (Sorted by % enrolled in public healthcare [ascending order])
+
+\newline
+
+
+```{r, warning=F, message=F}
+if(exists("pritab")){
+  pritab.f <- pritab %>%
+    adorn_totals(where = "row") %>%
+    adorn_percentages(denominator = "row") %>%
+    adorn_pct_formatting() %>% 
+    adorn_ns(position = "front") %>%
+    adorn_title(
+      row_name = "Cluster ID",
+      col_name = "Primary Healthcare Source",
+      placement = "combined") %>%
+    flextable::flextable() %>%
+    footnote(i = 1, j = 1,
+             ref_symbols = "*",
+             value = as_paragraph(paste("The chi-squared p-value is",
+                                        round(chisq.test(pritab)$p.val,4)))) %>%
+    footnote(i = 1, j = 1,
+             ref_symbols = "a",
+             value = as_paragraph(paste("0=public/government, 1=private, 2=other"))) %>% 
+    flextable::autofit() %>% 
+    flextable::set_table_properties(layout = "autofit")
+  
+  knitr::knit_print(pritab.f)
+}
+```
+
+\pagebreak
+
+# Ordered Logisitic Regressions Analysis
+
+```{r}
+###### Functions
+
+clus_config_ordered <- function(data, i, tab, nCores){
+  
+  vars <- as.vector(as.matrix(tab[i,2:5]))
+  sub_data <- data %>% dplyr::select("wt", vars)
+  names <- colnames(sub_data)[-1]
+  
+  out <- clusNode(sub_data,4,nCores)
+  #medoids
+  #out[[2]][as.numeric(c(names(table(clusters$cluster5)))),]
+  
+  sub_data$clus <- paste0(unname(unlist(sub_data[,c(tab[i,2])])), 
+                      unname(unlist(sub_data[,c(tab[i,3])])),
+                      unname(unlist(sub_data[,c(tab[i,4])])),
+                      unname(unlist(sub_data[,c(tab[i,5])]))
+  )
+  
+  sub_data$node <- out[[1]]$clustering %>% unlist()
+  
+  grouped <- sub_data %>% group_by(node) %>% 
+    group_by(clus) %>%
+    summarise(node = unique(node),
+              var1 = first(!!as.name(names[1])),
+              var2 = first(!!as.name(names[2])),
+              var3 = first(!!as.name(names[3])),
+              var4 = first(!!as.name(names[4])))
+  
+  grouped$node <- as.numeric(as.factor(as.character(grouped$node)))
+  colnames(grouped) <- c("clus","node", names)
+  grouped$prop <- prop.table(table(sub_data$clus))*100
+  
+  return(grouped)
+}
+
+grouped <- clus_config_ordered(data = dhs, i=1, tab=tab1, nCores = nCores)
+
+grouped$assets <- apply(grouped %>% dplyr::select(-c(clus,node,prop)), MARGIN = 1, sum)
+
+grouped_meta <- grouped %>% group_by(node) %>% 
+  summarise(ave_asset = mean(assets),
+            min_asset = min(assets),
+            max_asset = max(assets),
+            #prop = sum(prop)
+            )
+
+##### Get temporary ranks for the clusters
+#grouped_meta$tmp_ranks <- rank(desc(grouped_meta$ave_asset))
+
+##### NEED TO EDIT THIS PART BASED ON DECISION FROM ALAN
+##### Check if there are any ties, and break them if so
+##### Set up as not equal to 5 now, since we always use this
+##### As the number of clusters
+# if(unique(tmp_ranks) != 5){
+# }
+
+##### NEED TO EDIT THIS PART BASED ON DECISION FROM ALAN
+
+### rank 5: highest asset, rank 1: lowest asset
+grouped_meta$rank <- rank(grouped_meta$ave_asset)
+score <- sum(table(grouped_meta$rank)-1)
+group_final <- merge(grouped, grouped_meta, by = "node")
+group_final
+```
+
+```{r}
+##### Use "merged_data" combining household and individual data
+##### As loaded in an above code chunk
+
+# Merge the datasets
+merged_data$clus <- paste0(unname(unlist(merged_data[,c(tab[i,2])])), 
+                      unname(unlist(merged_data[,c(tab[i,3])])),
+                      unname(unlist(merged_data[,c(tab[i,4])])),
+                      unname(unlist(merged_data[,c(tab[i,5])]))
+  )
+
+ord_log_data <- merge(merged_data,group_final[,c("clus","rank")],by="clus")
+ord_log_data$rank <- factor(ord_log_data$rank)
+```
+
+```{r}
+##### Proportion of children deceased
+ord_log_decat <- MASS::polr(de_cat ~ rank, data = ord_log_data, weights = wt)
+summary(ord_log_decat)
+```
+
+```{r}
+##### Proportion of children deceased
+ord_log_educ <- MASS::polr(factor(v149) ~ rank, data = ord_log_data, weights = wt)
+summary(ord_log_educ)
+```
+
+```{r}
+#### Primary source of healthcare
+ord_log_health <- MASS::polr(factor(health) ~ rank, data = ord_log_data, weights = wt)
+summary(ord_log_health)
+```
+
+
+
+
+
+
+
