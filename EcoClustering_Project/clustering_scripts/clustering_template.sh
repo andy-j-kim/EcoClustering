@@ -9,9 +9,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=32
-#SBATCH --time=30:00:00
-#SBATCH --output=../slurm_output/clustering_cc.out
-#SBATCH --error=../slurm_output/clustering_cc.err
+#SBATCH --time=20:00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=___@berkeley.edu
 
@@ -22,4 +20,4 @@
 module load r
 module load r-packages
 module load r-spatial
-R CMD BATCH --no-save ./R/clustering_cc.R ./R_output/clustering_cc.Rout
+R CMD BATCH --no-save ../EcoClustering/R/clustering_cc.R ../EcoClustering/R_output/clustering_cc.Rout

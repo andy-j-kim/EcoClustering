@@ -34,7 +34,7 @@ source("./input_files/EC_user_functions.R")
 
 
 # Read in the raw DHS .dta file
-dataset <- haven::read_dta("./data/")
+dataset <- haven::read_dta("./data/dhs/")
 
 # Country-code (e.g. "CM18" for Cameroon 2018)
 cc <- ""
@@ -71,9 +71,9 @@ dataclean <- dataset %>%
   dplyr::select(where(~sum(is.na(.x))/length(.x) < max_prop_NA)) %>%
   #6
   dplyr::select(-which(purrr::map_lgl(., detect_imbalance, max_imbalance)), wt) %>% 
-  #7
+  #7 (These will change country to country)
   dplyr::select(-c(hv246a, hv246b, hv246e, hv246g)) %>% 
   # move weights to front of the dataset
   dplyr::select(wt, everything())
 
-saveRDS(dataclean, file = paste0("./data/", cc, "_clean.rds"))
+saveRDS(dataclean, file = paste0("./data/cleaned/", cc, "_clean.rds"))
