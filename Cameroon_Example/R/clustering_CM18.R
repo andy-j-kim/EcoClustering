@@ -8,6 +8,7 @@
 
 library(parallel)
 library(doParallel)
+library(parallelDist)
 
 # Change if clustering node directory is different
 source("./input_files/EC_user_functions.R")
@@ -32,6 +33,6 @@ dataclean <- readRDS(paste0("./EcoClustering/data/cleaned/", cc, "_clean.rds"))
 output <- calcASW(dataclean, num.in.cluster = num_cluster, nCores)
 
 # If running on an external cluster, change output directory accordingly
-saveRDS(output[[1]], paste0("./EcoClustering/data/asw/", "ASW_", cc, "_", num_cluster, "cluster.rds"))
-print(output[[2]]) # Print runtime
+saveRDS(output[[2]], paste0("./EcoClustering/data/asw/ASW_", cc, "_", num_cluster, "cluster.rds"))
+print(output[[3]]) # Print runtime
 print("DONE")

@@ -10,7 +10,7 @@ library(tidyverse)
 source("./input_files/EC_user_functions.R")
 
 # Read in the raw DHS .dta file
-dataset <- haven::read_dta("./data/CMHR71DT/CMHR71FL.DTA")
+dataset <- haven::read_dta("./data/dhs/CMHR71DT/CMHR71FL.DTA")
 
 # Country-code (e.g. "CM18" for Cameroon 2018)
 cc <- "CM18"

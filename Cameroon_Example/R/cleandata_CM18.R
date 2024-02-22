@@ -34,7 +34,7 @@ source("./input_files/EC_user_functions.R")
 
 
 # Read in the raw DHS .dta file
-dataset <- haven::read_dta("./data/CMHR71DT/CMHR71FL.DTA")
+dataset <- haven::read_dta("./data/dhs/CMHR71DT/CMHR71FL.DTA")
 
 # Country-code
 cc <- "CM18"
@@ -77,4 +77,4 @@ dataclean <- dataset %>%
   # move weights to front of the dataset
   dplyr::select(wt, everything())
 
-saveRDS(dataclean, file = paste0("./data/", cc, "_clean.rds"))
+saveRDS(dataclean, file = paste0("./data/cleaned/", cc, "_clean.rds"))

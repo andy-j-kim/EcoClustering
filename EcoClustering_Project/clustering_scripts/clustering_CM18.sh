@@ -20,4 +20,4 @@
 module load r
 module load r-packages
 module load r-spatial
-R CMD BATCH --no-save ../R/clustering_CM18.R ../R_output/clustering_CM18.Rout
+R CMD BATCH --no-save ../EcoClustering/R/clustering_CM18.R ../EcoClustering/R_output/clustering_CM18.Rout
