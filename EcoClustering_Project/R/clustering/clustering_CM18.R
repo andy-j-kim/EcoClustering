@@ -20,12 +20,12 @@ cc <- "CM18"
 num_cluster <- 4
 
 # If running this script on an external cluster:
-# nCores <- as.numeric(Sys.getenv('SLURM_CPUS_ON_NODE'))
-# doParallel::registerDoParallel(nCores)
+nCores <- as.numeric(Sys.getenv('SLURM_CPUS_ON_NODE'))
+doParallel::registerDoParallel(nCores)
 
 # If running this script on your local device:
-nCores <- as.numeric(parallel::detectCores())
-doParallel::registerDoParallel(nCores)
+# nCores <- as.numeric(parallel::detectCores())
+# doParallel::registerDoParallel(nCores)
 
 # read cleaned data from correct directory (different if on cluster)
 dataclean <- readRDS(paste0("./data/cleaned/", cc, "_clean.rds"))

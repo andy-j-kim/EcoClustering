@@ -34,7 +34,7 @@ source("./input_files/EC_user_functions.R")
 
 
 # Read in the raw DHS .dta file
-dataset <- haven::read_dta("./data/dhs/CMHR71DT/CMHR71FL.DTA")
+dataset <- haven::read_dta("./data/dhs/Cameroon_2018/CMHR71DT/CMHR71FL.DTA")
 
 # Country-code
 cc <- "CM18"
