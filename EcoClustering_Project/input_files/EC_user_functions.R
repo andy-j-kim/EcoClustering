@@ -387,11 +387,7 @@ clus_config <- function(data, i, tab, nCores){
                             to = var_to_label_df$V1, 
                             warn_missing = F)
   
-  subset_data <- data %>% select("wt", vars) %>% 
-    mutate(clus = paste0(.[,c(tab[i,2])], 
-                         .[,c(tab[i,3])],
-                         .[,c(tab[i,4])],
-                         .[,c(tab[i,5])]))
+  subset_data <- data %>% select("wt", vars) 
   
   out <- clusNode(subset_data,4,nCores)
   subset_data$node <- out[[1]]$clustering %>% 
@@ -406,6 +402,7 @@ clus_config <- function(data, i, tab, nCores){
     `colnames<-`(c("node", "prop"))
   
   grouped <- subset_data %>% 
+    unite(clus, c(vars), remove = F) %>% 
     group_by(clus) %>%
     summarise(node = unique(node),
               var1 = first(!!as.name(vars[1])),
@@ -422,3 +419,5 @@ clus_config <- function(data, i, tab, nCores){
   
   return(grouped)
 }
+
+
