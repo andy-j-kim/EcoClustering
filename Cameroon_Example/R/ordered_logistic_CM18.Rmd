@@ -596,7 +596,7 @@ clus_config_ordered <- function(data, i, tab, nCores){
 ##### Take note of what you set as i, as this will correspond 
 ##### To the variables you're analzying from the top cluster results
 i <- 1
-grouped <- clus_config_ordered(data = dhs, i=1, tab=tab1, nCores = nCores)
+grouped <- clus_config_ordered(data = dhs, i=3, tab=tab1, nCores = nCores)
 
 ##### At this point, take note of if any of the variables used are not binary
 ##### If so, they should be releveled and made into numeric variables as appropriate
@@ -661,10 +661,10 @@ merged_data <- merge(hh_subset, ind_subset,
                      by.y=c("v001", "v002"), all.y=FALSE)
 
 ##### Get clustering value to merge for ordinal logistic data
-merged_data$clus <- paste0(unname(unlist(merged_data[,c(tab[i,2])])), 
-                      unname(unlist(merged_data[,c(tab[i,3])])),
-                      unname(unlist(merged_data[,c(tab[i,4])])),
-                      unname(unlist(merged_data[,c(tab[i,5])]))
+merged_data$clus <- paste0(unname(unlist(merged_data[,c(tab1[i,2])])), 
+                      unname(unlist(merged_data[,c(tab1[i,3])])),
+                      unname(unlist(merged_data[,c(tab1[i,4])])),
+                      unname(unlist(merged_data[,c(tab1[i,5])]))
 )
 
 ord_log_data <- merge(merged_data,group_final[,c("clus","rank")],by="clus")
@@ -690,7 +690,7 @@ res_health <- summary(ord_log_health)
 ##### Let H1 be the alternative hypothesis
 ##### For H1: beta < 0 set lower = TRUE, for beta > 0, set lower = FALSE
 p_decat <- pt(coef(res_decat)["rank",3], ord_log_decat$df, lower = FALSE)
-p_educ <- pt(coef(res_educ)["rank",3], ord_log_educ$df, lower = FALSE)
+p_educ <- 1 - pt(coef(res_educ)["rank",3], ord_log_educ$df, lower = FALSE)
 p_health <- pt(coef(res_health)["rank",3], ord_log_health$df, lower = FALSE)
 ```
 
