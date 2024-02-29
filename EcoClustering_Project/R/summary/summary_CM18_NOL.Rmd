@@ -1,5 +1,5 @@
 ---
-title: "Economic Clustering Summary Report: South Africa 2016"
+title: "Economic Clustering Summary Report: Cameroon 2018"
 author: "Andy Kim"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: 
@@ -153,14 +153,14 @@ clusNode <- function(data, num.in.cluster, ncores){
 # TO FIX: Rabbits is continuous , fix all animal/continuous vars
 
 #########
-cy <- "ZA16"
+cy <- "CM18"
 num_var <- 4 # number of variables used to generate clusters
 num_cluster <- 5
 nCores <- parallel::detectCores()
 
 # Change paths to DHS files here
-hh_path <- "./data/dhs/SouthAfrica_2016/ZAHR71DT/ZAHR71FL.DTA"
-ind_path <- "./data/dhs/SouthAfrica_2016/ZAIR71DT/ZAIR71FL.DTA"
+hh_path <- "./data/dhs/Cameroon_2018/CMHR71DT/CMHR71FL.DTA"
+ind_path <- "./data/dhs/Cameroon_2018/CMIR71DT/CMIR71FL.DTA"
 #tablepng_path <- "../summoutput_files/"
 #########
 
@@ -601,7 +601,7 @@ clus_config_ordered <- function(data, i, tab, nCores){
 ##### Run the cluster configuration function
 ##### Take note of what you set as i, as this will correspond 
 ##### To the variables you're analyzing from the top cluster results
-i <- 1
+i <- 3
 grouped <- clus_config_ordered(data = dhs, i=i, tab=tab1, nCores = nCores)
 
 ##### At this point, take note of if any of the variables used are not binary
@@ -708,3 +708,4 @@ p_health <- pt(coef(res_health)["rank",3], ord_log_health$df, lower = FALSE)
 **P-value for Educational Attainment** `r p_educ`
 
 **P-value for Primary Source of Healthcare** `r p_health`
+
