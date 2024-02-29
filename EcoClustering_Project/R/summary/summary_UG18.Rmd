@@ -554,3 +554,150 @@ if(exists("pritab")){
   knitr::knit_print(pritab.f)
 }
 ```
+
+\pagebreak
+
+# Ordered Logisitic Regression Analysis
+
+```{r}
+###### Functions
+clus_config_ordered <- function(data, i, tab, nCores){
+  
+  ##### Extract the variables from clustering i
+  ##### and get the cluster distribution in the data
+  vars <- as.vector(as.matrix(tab[i,2:5]))
+  sub_data <- data %>% dplyr::select("wt", vars)
+  names <- colnames(sub_data)[-1]
+  out <- clusNode(sub_data,4,nCores)
+  
+  #medoids
+  #out[[2]][as.numeric(c(names(table(clusters$cluster5)))),]
+  
+  ##### Add the encodings of the clusters and node values
+  sub_data$clus <- paste0(unname(unlist(sub_data[,c(tab[i,2])])), 
+                      unname(unlist(sub_data[,c(tab[i,3])])),
+                      unname(unlist(sub_data[,c(tab[i,4])])),
+                      unname(unlist(sub_data[,c(tab[i,5])]))
+  )
+  sub_data$node <- out[[1]]$clustering %>% unlist()
+  
+  ##### Create summary data of each cluster node
+  grouped <- sub_data %>% group_by(node) %>% 
+    group_by(clus) %>%
+    summarise(node = unique(node),
+              var1 = first(!!as.name(names[1])),
+              var2 = first(!!as.name(names[2])),
+              var3 = first(!!as.name(names[3])),
+              var4 = first(!!as.name(names[4])))
+  grouped$node <- as.numeric(as.factor(as.character(grouped$node)))
+  colnames(grouped) <- c("clus","node", names)
+  grouped$prop <- prop.table(table(sub_data$clus))*100
+  
+  return(grouped)
+}
+```
+
+```{r}
+##### Run the cluster configuration function
+##### Take note of what you set as i, as this will correspond 
+##### To the variables you're analyzing from the top cluster results
+i <- 1
+grouped <- clus_config_ordered(data = dhs, i=i, tab=tab1, nCores = nCores)
+
+##### At this point, take note of if any of the variables used are not binary
+##### If so, they should be releveled and made into numeric variables as appropriate
+##### Map the variables to a numbered value ranging between 0 and 1
+##### For example, roof has levels (rudimentary, other, natural, finished)
+##### We could map this to (0,1,1,1) if we wanted to view rudimentary as "not having a roof"
+##### Or, we could map to (0,0,0.5,1) if we viewed finished as more of an asset than a natural roof
+##### In the following comment is a code example of how you'd change this for roof:
+##### grouped$roof <- dplyr::recode(grouped$roof, "rudimentary" = 0, "other" = 0, "natural" = 0.5, "finished" = 1)
+
+##### Now, we count the average number of assets of each node in the cluster
+grouped$assets <- apply(grouped %>% dplyr::select(-c(clus,node,prop)), MARGIN = 1, sum)
+grouped_meta <- grouped %>% group_by(node) %>% 
+  summarise(ave_asset = mean(assets),
+            min_asset = min(assets),
+            max_asset = max(assets),
+            tot_prop = sum(prop)/100
+            )
+
+##### Create the rank variable, which gives the highest value to the most asset heavy
+##### groups, and the lowest value to the least asset heavy
+grouped_meta$rank <- rank(grouped_meta$ave_asset)
+
+##### Check for inequalities in the rank to get the cluster scoring
+##### The score is defined as the proportion of the population that 
+##### You'd need to re-rank to break any ties in the asset-scoring
+##### So if two clusters have the same rank, we could break this tie
+##### By reordering them and moving the smallest proportion cluster
+
+score <- 0
+if(length(unique(grouped_meta$rank)) != nrow(grouped_meta)){
+  for(r in unique(grouped_meta$rank)){
+    tmp <- grouped_meta %>% filter(rank == r)
+    if(nrow(tmp) > 1){
+      score <- score + sum(tmp$tot_prop) - max(tmp$tot_prop)
+    }
+  }
+}
+
+##### A final cleaned grouped dataset with summary data
+group_final <- merge(grouped, grouped_meta, by = "node")
+```
+
+```{r, warning=F, message=F, results='hide'}
+##### Use "merged_data" combining household and individual data
+##### As loaded in an above code chunk
+
+##### NOTE: if you had to recode a non-binary variable like roof
+##### You should replace it here with the categorical coding to run this smoothly
+#####
+##### Here is where you'd reinstate the roof variable with its categorical values
+##### Make sure to add it to the "hh" dataset as seen above
+##### hh$roof <- dhs$roof
+##### Then, you'd need to remerge the data
+
+##### Get clustering value to merge for ordinal logistic data
+merged_data$clus <- paste0(unname(unlist(merged_data[,c(tab1[i,2])])), 
+                      unname(unlist(merged_data[,c(tab1[i,3])])),
+                      unname(unlist(merged_data[,c(tab1[i,4])])),
+                      unname(unlist(merged_data[,c(tab1[i,5])]))
+)
+
+ord_log_data <- merge(merged_data,group_final[,c("clus","rank")],by="clus")
+```
+
+## Ordered Logistic Using ordinal::clm
+
+This implements a Test of Trend and extracts the p-values for the validation variables. The p-values come from a one-sided hypothesis test that the coefficient of the rank in the model is positive, so that as the rank increases (become more asset heavy) the validation variable increases (assuming its values imply increasing wealth/SES).
+
+```{r}
+library(ordinal)
+##### May need to modify outcome variables where appropriate
+
+##### Reorder de_cat variable so that worst outcome is lowest
+##### Need 0 = 67+%, 1 = 34-66%, etc...
+ord_log_data$de_cat <- factor(ord_log_data$de_cat, levels = c("67+%","34-66%","1-33%","0%"))
+ord_log_decat <- clm(de_cat ~ rank, data = ord_log_data)
+res_decat <- summary(ord_log_decat)
+
+##### No reordering needs to occur with education
+ord_log_educ <- clm(factor(v149) ~ rank, data = ord_log_data)
+res_educ <- summary(ord_log_educ)
+
+##### Healthcare variable does not exist
+
+##### Let H1 be the alternative hypothesis
+##### For H1: beta < 0 set lower = TRUE, for H1: beta > 0, set lower = FALSE
+p_decat <- pt(coef(res_decat)["rank",3], ord_log_decat$df, lower = FALSE)
+p_educ <- pt(coef(res_educ)["rank",3], ord_log_educ$df, lower = FALSE)
+```
+
+**Cluster scoring:** `r score`
+
+**Ordinal Logistic Regression P-values**
+
+**P-value for Proportion of Children Deceased** `r p_decat`
+
+**P-value for Educational Attainment** `r p_educ`
