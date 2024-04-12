@@ -3,13 +3,13 @@
 ####################
 # SBATCH OPTIONS
 ####################
-#SBATCH --job-name=EcoClustering_UG18
+#SBATCH --job-name=EcoClustering_UG16
 #SBATCH --account=co_biostat
 #SBATCH --partition=savio3
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=32
-#SBATCH --time=20:00:00
+#SBATCH --time=60:00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=a_kim@berkeley.edu
 
@@ -20,4 +20,4 @@
 module load r
 module load r-packages
 module load r-spatial
-R CMD BATCH --no-save ../EcoClustering/R/clustering_UG18.R ../EcoClustering/R_output/clustering_UG18.Rout
+R CMD BATCH --no-save ../EcoClustering/R/clustering_UG16.R ../EcoClustering/R_output/clustering_UG16.Rout
