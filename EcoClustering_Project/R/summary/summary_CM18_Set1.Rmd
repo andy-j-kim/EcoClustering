@@ -1,5 +1,5 @@
 ---
-title: "Economic Clustering Summary Report: Country Year"
+title: "Economic Clustering Summary Report: Cameroon 2018"
 output: 
   word_document:
     reference_docx: "summaryscript_style.docx"

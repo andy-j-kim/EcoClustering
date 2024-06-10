@@ -157,10 +157,8 @@ num_cluster <- 5
 nCores <- parallel::detectCores()
 
 # Change paths to DHS files here
-#hh_path <- "./data/dhs/Uganda_2018/UGHR7IDT/UGHR7IFL.DTA"
 hh_path <- "./data/dhs/Uganda_2016/UGHR7BDT/UGHR7BFL.DTA"
 ind_path <- "./data/dhs/Uganda_2016/UGIR7BDT/UGIR7BFL.DTA"
-#ind_path <- "./data/dhs/Uganda_2018/UGIR7IDT/UGIR7IFL.DTA"
 #tablepng_path <- "../summoutput_files/"
 #########
 
@@ -321,12 +319,15 @@ knitr::knit_print(group1.f)
 ```{r, warning=F, message=F, results='hide'}
 source("./input_files/EC_user_functions.R")
 
+# select variable set
+vars <- unlist(as.vector(tab1[index,-1]))
+
+# load in raw datasets
 ind <- haven::read_dta(ind_path) 
 
 hh <- haven::read_dta(hh_path) %>% 
   mutate(wt = ifelse(hv012 == 0, hv013, hv012)*hv005/1e+06) %>% 
   preprocess_dhsfactors_adj()
-
 
 ind_vars <- c("v001", "v002", "v005")
 
@@ -352,30 +353,27 @@ if(all(c("v326") %in% names(ind))){
   ind_vars <- c(ind_vars, "health")
 }
 
-hh_subset <- hh %>%
-  dplyr::select(hv001, hv002, wt, all_of(unq.vars)) #normally v106 is ha66_01
-
 ind_subset <- ind %>%
   dplyr::select(all_of(ind_vars))
+
+# CHECK IF NROW OF HH_SUBSET MATCHES NROW OF DHS. If not, filter aas done here
+hh_subset <- hh %>%
+  dplyr::filter(hv237 != 8,
+                sh125 != 8,
+                sh144b != 8) %>% 
+  dplyr::select(hv001, hv002, wt, all_of(unq.vars)) #normally v106 is ha66_01
+
+# re-generate clustering IDs for each HH
+out <- clusNode(select(hh_subset, wt, all_of(vars)), 4, ncores = 8)
+hh_subset$id <- out[[1]]$clustering %>% 
+  unlist() %>% 
+  as.factor() %>% 
+  as.numeric()
 
 # Merge the datasets
 merged_data <- merge(hh_subset, ind_subset, 
                      by.x=c("hv001", "hv002"), 
                      by.y=c("v001", "v002"), all.y=FALSE)
-
-vars <- unlist(as.vector(tab1[index,-1])) # Using variables from the top variable grouping
-
-subset_data <- merged_data %>% 
-  select(wt, all_of(vars)) 
-
-# rerun algorithm on the subset
-out <- clusNode(subset_data, 4, ncores = 8)
-
-# collect clustering IDs for each individual
-merged_data$id <- out[[1]]$clustering %>% 
-  unlist() %>% 
-  as.factor() %>% 
-  as.numeric()
 ```
 
 
@@ -561,7 +559,7 @@ if(exists("pritab")){
 
 # Ordered Logisitic Regression Analysis
 
-```{r}
+```{r, warning=F}
 ###### Functions
 clus_config_ordered <- function(data, i, tab, nCores){
   
@@ -599,7 +597,7 @@ clus_config_ordered <- function(data, i, tab, nCores){
 }
 ```
 
-```{r}
+```{r, warning=F}
 ##### Run the cluster configuration function
 ##### Take note of what you set as i, as this will correspond 
 ##### To the variables you're analyzing from the top cluster results
@@ -674,7 +672,7 @@ ord_log_data <- merge(merged_data,group_final[,c("clus","rank")],by="clus")
 
 This implements a Test of Trend and extracts the p-values for the validation variables. The p-values come from a one-sided hypothesis test that the coefficient of the rank in the model is positive, so that as the rank increases (become more asset heavy) the validation variable increases (assuming its values imply increasing wealth/SES).
 
-```{r}
+```{r, warning=F}
 library(ordinal)
 ##### May need to modify outcome variables where appropriate
 

@@ -1,16 +1,16 @@
 ---
-title: "Economic Clustering Summary Report: Cameroon 2018"
+title: "Economic Clustering Summary Report: Uganda 2016"
 author: "Andy Kim"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: 
   word_document:
-    reference_docx: summaryscript_style.docx
+    reference_docx: "summaryscript_style.docx"
 
 always_allow_html: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = F, cache = F)
+knitr::opts_chunk$set(echo = F, cache = T)
 ```
 
 ```{r install-packages, message=F, warning=F}
@@ -28,7 +28,7 @@ library(gdtools)
 top_clus_table <- function(asw_mat, n){
   mat <- asw_mat %>% 
     arrange(desc(ASW)) %>%
-    slice(1:n)
+    dplyr::slice(1:n)
   
   mat2 <- select(mat,-c(ASW))
   
@@ -81,11 +81,7 @@ clus_config <- function(data, i, tab, nCores){
                             to = var_to_label_df$V1, 
                             warn_missing = F)
   
-  subset_data <- data %>% select("wt", vars) %>% 
-    mutate(clus = paste0(.[,c(tab[i,2])], 
-                         .[,c(tab[i,3])],
-                         .[,c(tab[i,4])],
-                         .[,c(tab[i,5])]))
+  subset_data <- data %>% select("wt", vars) 
   
   out <- clusNode(subset_data,4,nCores)
   subset_data$node <- out[[1]]$clustering %>% 
@@ -100,6 +96,7 @@ clus_config <- function(data, i, tab, nCores){
     `colnames<-`(c("node", "prop"))
   
   grouped <- subset_data %>% 
+    unite(clus, c(vars), remove = F) %>% 
     group_by(clus) %>%
     summarise(node = unique(node),
               var1 = first(!!as.name(vars[1])),
@@ -154,29 +151,31 @@ clusNode <- function(data, num.in.cluster, ncores){
 # e.g. AO11 BF1718 BN1718 BU1617 CD1314 CM18 ET19 GA12 GH19 GM1920 GN18 KM12 SL19 SN19 TZ17 ZA16
 
 #########
-cy <- "CM18"
+cy <- "UG16"
 num_var <- 4 # number of variables used to generate clusters
 num_cluster <- 5
 nCores <- parallel::detectCores()
 
 # Change paths to DHS files here
-hh_path <- "../data/CMHR71DT/CMHR71FL.DTA"
-ind_path <- "../data/CMIR71DT/CMIR71FL.DTA"
+hh_path <- "./data/dhs/Uganda_2016/UGHR7BDT/UGHR7BFL.DTA"
+ind_path <- "./data/dhs/Uganda_2016/UGIR7BDT/UGIR7BFL.DTA"
+#tablepng_path <- "../summoutput_files/"
 #########
 
 # Path to the cleaned DHS file
-dhspath <- paste0("../cleanedDHSdata/", cy, "_clean.rds")
+dhspath <- paste0("./data/cleaned/", cy, "_clean.rds")
 
-# Path to the ASW output file
-aswpath <- paste0("../asw_files/", cy, "_ASW_", num_var, "cluster.rds")
+# Path to the ASW output file (updated)
+#aswpath <- paste0("../asw_files/", cy, "_ASW_", num_var, "cluster.rds")
+aswpath <- paste0("./data/asw/ASW_", cy, "_", num_var, "cluster.rds")
 
 dhs <- readRDS(dhspath)
-asw_mat <- readRDS(aswpath) %>% dplyr::select(-X)
+asw_mat <- readRDS(aswpath) # %>% dplyr::select(-X)
 
 # Assign missing labels to multicat variables
 for(i in 1:length(Hmisc::label(dhs))){
   if(Hmisc::label(dhs)[i] == ""){
-    Hmisc::label(dhs[,i]) <- names(dhs)[i]
+    Hmisc::label(dhs[[i]]) <- names(dhs)[i]
   }
 }
 
@@ -185,6 +184,8 @@ var_to_label_df <- data.frame(lapply(dhs, attr, "label")) %>%
   t() %>% 
   as.data.frame() %>% 
   rownames_to_column()
+
+#dhs %>% filter_all(any_vars(. == 9))
 ```
 
 # Summary of Data
@@ -282,7 +283,9 @@ knitr::knit_print(marg_dist_table.f)
 
 ```{r, warning=FALSE}
 #### Cluster Configurations
-group1 <- clus_config(data = dhs, i=1, tab=tab1, nCores = nCores)
+
+index = 1
+group1 <- clus_config(data = dhs, i=index, tab=tab1, nCores = nCores)
 #group2 <- clus_config(data = dhs, i=2, tab=tab1, nCores = nCores)
 #group3 <- clus_config(data = dhs, i=3, tab=tab1, nCores = nCores)
 ```
@@ -314,14 +317,13 @@ knitr::knit_print(group1.f)
 # Validation Tables
 
 ```{r, warning=F, message=F, results='hide'}
-source("../EC_fxns_040923.R")
+source("./input_files/EC_user_functions.R")
 
 ind <- haven::read_dta(ind_path) 
 
 hh <- haven::read_dta(hh_path) %>% 
   mutate(wt = ifelse(hv012 == 0, hv013, hv012)*hv005/1e+06) %>% 
   preprocess_dhsfactors_adj()
-
 
 ind_vars <- c("v001", "v002", "v005")
 
@@ -341,12 +343,17 @@ if(all(c("v326") %in% names(ind))){
   ind$health = ind$v326 %>%
     str_replace_all('1[0-9]', '0') %>%
     str_replace_all('2[0-9]', '1') %>%
-    str_replace_all('3[0-9]', '2') %>%
+    str_replace_all('3[0-9]', '1') %>%
+    str_replace_all('4[0-9]', '2') %>%
     str_replace_all('9[0-9]', '2')
   ind_vars <- c(ind_vars, "health")
 }
 
+# CHECK IF NROW OF HH_SUBSET MATCHES NROW OF DHS
 hh_subset <- hh %>%
+  # dplyr::filter(hv237 != 8,
+  #               sh125 != 8,
+  #               sh144b != 8) %>% 
   dplyr::select(hv001, hv002, wt, all_of(unq.vars)) #normally v106 is ha66_01
 
 ind_subset <- ind %>%
@@ -357,7 +364,7 @@ merged_data <- merge(hh_subset, ind_subset,
                      by.x=c("hv001", "hv002"), 
                      by.y=c("v001", "v002"), all.y=FALSE)
 
-vars <- unlist(as.vector(tab1[1,-1])) # Using variables from the top variable grouping
+vars <- unlist(as.vector(tab1[index,-1])) # Using variables from the top variable grouping
 
 subset_data <- merged_data %>% 
   select(wt, all_of(vars)) 
@@ -550,3 +557,150 @@ if(exists("pritab")){
   knitr::knit_print(pritab.f)
 }
 ```
+
+\pagebreak
+
+# Ordered Logisitic Regression Analysis
+
+```{r}
+###### Functions
+clus_config_ordered <- function(data, i, tab, nCores){
+  
+  ##### Extract the variables from clustering i
+  ##### and get the cluster distribution in the data
+  vars <- as.vector(as.matrix(tab[i,2:5]))
+  sub_data <- data %>% dplyr::select("wt", vars)
+  names <- colnames(sub_data)[-1]
+  out <- clusNode(sub_data,4,nCores)
+  
+  #medoids
+  #out[[2]][as.numeric(c(names(table(clusters$cluster5)))),]
+  
+  ##### Add the encodings of the clusters and node values
+  sub_data$clus <- paste0(unname(unlist(sub_data[,c(tab[i,2])])), 
+                      unname(unlist(sub_data[,c(tab[i,3])])),
+                      unname(unlist(sub_data[,c(tab[i,4])])),
+                      unname(unlist(sub_data[,c(tab[i,5])]))
+  )
+  sub_data$node <- out[[1]]$clustering %>% unlist()
+  
+  ##### Create summary data of each cluster node
+  grouped <- sub_data %>% group_by(node) %>% 
+    group_by(clus) %>%
+    summarise(node = unique(node),
+              var1 = first(!!as.name(names[1])),
+              var2 = first(!!as.name(names[2])),
+              var3 = first(!!as.name(names[3])),
+              var4 = first(!!as.name(names[4])))
+  grouped$node <- as.numeric(as.factor(as.character(grouped$node)))
+  colnames(grouped) <- c("clus","node", names)
+  grouped$prop <- prop.table(table(sub_data$clus))*100
+  
+  return(grouped)
+}
+```
+
+```{r}
+##### Run the cluster configuration function
+##### Take note of what you set as i, as this will correspond 
+##### To the variables you're analyzing from the top cluster results
+i <- 1
+grouped <- clus_config_ordered(data = dhs, i=i, tab=tab1, nCores = nCores)
+
+##### At this point, take note of if any of the variables used are not binary
+##### If so, they should be releveled and made into numeric variables as appropriate
+##### Map the variables to a numbered value ranging between 0 and 1
+##### For example, roof has levels (rudimentary, other, natural, finished)
+##### We could map this to (0,1,1,1) if we wanted to view rudimentary as "not having a roof"
+##### Or, we could map to (0,0,0.5,1) if we viewed finished as more of an asset than a natural roof
+##### In the following comment is a code example of how you'd change this for roof:
+##### grouped$roof <- dplyr::recode(grouped$roof, "rudimentary" = 0, "other" = 0, "natural" = 0.5, "finished" = 1)
+
+##### Now, we count the average number of assets of each node in the cluster
+grouped$assets <- apply(grouped %>% dplyr::select(-c(clus,node,prop)), MARGIN = 1, sum)
+grouped_meta <- grouped %>% group_by(node) %>% 
+  summarise(ave_asset = mean(assets),
+            min_asset = min(assets),
+            max_asset = max(assets),
+            tot_prop = sum(prop)/100
+            )
+
+##### Create the rank variable, which gives the highest value to the most asset heavy
+##### groups, and the lowest value to the least asset heavy
+grouped_meta$rank <- rank(grouped_meta$ave_asset)
+
+##### Check for inequalities in the rank to get the cluster scoring
+##### The score is defined as the proportion of the population that 
+##### You'd need to re-rank to break any ties in the asset-scoring
+##### So if two clusters have the same rank, we could break this tie
+##### By reordering them and moving the smallest proportion cluster
+
+score <- 0
+if(length(unique(grouped_meta$rank)) != nrow(grouped_meta)){
+  for(r in unique(grouped_meta$rank)){
+    tmp <- grouped_meta %>% filter(rank == r)
+    if(nrow(tmp) > 1){
+      score <- score + sum(tmp$tot_prop) - max(tmp$tot_prop)
+    }
+  }
+}
+
+##### A final cleaned grouped dataset with summary data
+group_final <- merge(grouped, grouped_meta, by = "node")
+```
+
+```{r, warning=F, message=F, results='hide'}
+##### Use "merged_data" combining household and individual data
+##### As loaded in an above code chunk
+
+##### NOTE: if you had to recode a non-binary variable like roof
+##### You should replace it here with the categorical coding to run this smoothly
+#####
+##### Here is where you'd reinstate the roof variable with its categorical values
+##### Make sure to add it to the "hh" dataset as seen above
+##### hh$roof <- dhs$roof
+##### Then, you'd need to remerge the data
+
+##### Get clustering value to merge for ordinal logistic data
+merged_data$clus <- paste0(unname(unlist(merged_data[,c(tab1[i,2])])), 
+                      unname(unlist(merged_data[,c(tab1[i,3])])),
+                      unname(unlist(merged_data[,c(tab1[i,4])])),
+                      unname(unlist(merged_data[,c(tab1[i,5])]))
+)
+
+ord_log_data <- merge(merged_data,group_final[,c("clus","rank")],by="clus")
+```
+
+## Ordered Logistic Using ordinal::clm
+
+This implements a Test of Trend and extracts the p-values for the validation variables. The p-values come from a one-sided hypothesis test that the coefficient of the rank in the model is positive, so that as the rank increases (become more asset heavy) the validation variable increases (assuming its values imply increasing wealth/SES).
+
+```{r}
+library(ordinal)
+##### May need to modify outcome variables where appropriate
+
+##### Reorder de_cat variable so that worst outcome is lowest
+##### Need 0 = 67+%, 1 = 34-66%, etc...
+ord_log_data$de_cat <- factor(ord_log_data$de_cat, levels = c("67+%","34-66%","1-33%","0%"))
+ord_log_decat <- clm(de_cat ~ rank, data = ord_log_data)
+res_decat <- summary(ord_log_decat)
+
+##### No reordering needs to occur with education
+ord_log_educ <- clm(factor(v149) ~ rank, data = ord_log_data)
+res_educ <- summary(ord_log_educ)
+
+##### Healthcare variable does not exist
+
+##### Let H1 be the alternative hypothesis
+##### For H1: beta < 0 set lower = TRUE, for H1: beta > 0, set lower = FALSE
+p_decat <- pt(coef(res_decat)["rank",3], ord_log_decat$df, lower = FALSE)
+p_educ <- pt(coef(res_educ)["rank",3], ord_log_educ$df, lower = FALSE)
+```
+
+**Cluster scoring:** `r score`
+
+**Ordinal Logistic Regression P-values**
+
+**P-value for Proportion of Children Deceased** `r p_decat`
+
+**P-value for Educational Attainment** `r p_educ`

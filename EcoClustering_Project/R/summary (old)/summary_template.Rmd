@@ -23,20 +23,16 @@ library(gdtools)
 ```
 
 
-```{r user-functions}
+```{r user-functions, warning = F}
 source("./input_files/EC_user_functions.R")
 ```
 
 ```{r}
-#### Remember to change the title of the document to reflect the correct Country + Year
-# Change country-year here
-# e.g. AO11 BF1718 BN1718 BU1617 CD1314 CM18 ET19 GA12 GH19 GM1920 GN18 KM12 SL19 SN19 TZ17 ZA16
-
-
 #########
 cy <- "GH19"
 num_var <- 4 # number of variables used to generate clusters
 num_cluster <- 5
+index <- 1
 nCores <- parallel::detectCores()
 
 # Change paths to DHS files here
@@ -73,15 +69,9 @@ var_to_label_df <- data.frame(lapply(dhs, attr, "label")) %>%
 
 # Summary of Data
 
-```{r, eval = F}
-paste0("Country Code-year: ", cy)
-paste0("Number of observations: ", nrow(dhs))
-paste0("Number of clusters: ", num_cluster)
-paste0("Number of variables used: ", ncol(dhs) - 1)
-paste0("Distance used: Hamming")
-paste0("Variables used in the algorithm: ", paste0(names(dhs)[-1], collapse = ", "))
-```
 **Country Code-year:** `r cy`
+
+**Cluster Configuration #: ** `r index``
 
 **Number of observations:** `r nrow(dhs)`
 
@@ -166,9 +156,7 @@ knitr::knit_print(marg_dist_table.f)
 
 ```{r, warning=FALSE}
 #### Cluster Configurations
-group1 <- clus_config(data = dhs, i=1, tab=tab1, nCores = nCores)
-#group2 <- clus_config(data = dhs, i=2, tab=tab1, nCores = nCores)
-#group3 <- clus_config(data = dhs, i=3, tab=tab1, nCores = nCores)
+group1 <- clus_config(data = dhs, i=index, tab=tab1, nCores = nCores)
 ```
 
 #
@@ -199,7 +187,10 @@ knitr::knit_print(group1.f)
 
 ```{r, warning=F, message=F, results='hide'}
 source("../EC_fxns_040923.R")
+# select variable set
+vars <- unlist(as.vector(tab1[index,-1]))
 
+# load in raw datasets
 ind <- haven::read_dta(ind_path) 
 
 hh <- haven::read_dta(hh_path) %>% 
@@ -231,30 +222,24 @@ if(all(c("v326") %in% names(ind))){
   ind_vars <- c(ind_vars, "health")
 }
 
+ind_subset <- ind %>%
+  dplyr::select(all_of(ind_vars))
+
+# CHECK IF NROW OF HH_SUBSET MATCHES NROW OF DHS. If not, filter as done here
 hh_subset <- hh %>%
   dplyr::select(hv001, hv002, wt, all_of(unq.vars)) #normally v106 is ha66_01
 
-ind_subset <- ind %>%
-  dplyr::select(all_of(ind_vars))
+# re-generate clustering IDs for each HH
+out <- clusNode(select(hh_subset, wt, all_of(vars)), 4, ncores = 8)
+hh_subset$id <- out[[1]]$clustering %>% 
+  unlist() %>% 
+  as.factor() %>% 
+  as.numeric()
 
 # Merge the datasets
 merged_data <- merge(hh_subset, ind_subset, 
                      by.x=c("hv001", "hv002"), 
                      by.y=c("v001", "v002"), all.y=FALSE)
-
-vars <- unlist(as.vector(tab1[1,-1])) # Using variables from the top variable grouping
-
-subset_data <- merged_data %>% 
-  select(wt, all_of(vars)) 
-
-# rerun algorithm on the subset
-out <- clusNode(subset_data, 4, ncores = 8)
-
-# collect clustering IDs for each individual
-merged_data$id <- out[[1]]$clustering %>% 
-  unlist() %>% 
-  as.factor() %>% 
-  as.numeric()
 ```
 
 
