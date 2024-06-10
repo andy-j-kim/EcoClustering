@@ -1,7 +1,5 @@
 ---
 title: "Economic Clustering Summary Report: Country Year"
-author: "Andy Kim"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: 
   word_document:
     reference_docx: "summaryscript_style.docx"
@@ -82,14 +80,14 @@ dhs_labels <- create_label_df(dhs)
 
 **Number of variables used:** `r ncol(dhs) - 1`
 
-**Variable set used:** `r paste0("#", set)`
+**Variable set used:** `r paste0(set)`
 
 **Variables used in the algorithm:** `r paste0(names(dhs)[-1], collapse = ", ")`
 
 #
 \pagebreak
 
-# Top Variable Sets (Sorted by ASW)
+# Top `r num_results` Variable Sets (Sorted by ASW)
 
 ```{r top variable}
 top_varset_table <- print_top_varsets(asw_mat = asw_mat, 
