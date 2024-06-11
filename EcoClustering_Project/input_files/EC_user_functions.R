@@ -3,75 +3,75 @@ library(gt)
 library(flextable)
 library(weights)
 
-# preprocess_dhsfactors <- function(data){
-#   require(dplyr)
-#   require(stringr)
-#   require(sjlabelled)
-#   newdata <- data %>% 
-#     dplyr::mutate(water = sjlabelled::as_label(hv201) %>% 
-#                     str_replace_all('[Pp]iped into dwelling', 'pipe_dwel') %>% 
-#                     str_replace_all('[Pp]iped to yard/plot', 'pipe_yard') %>% 
-#                     str_replace_all('[Pp]iped to neighbor', 'pipe_neighbor') %>% 
-#                     str_replace_all('[Pp]ublic tap/standpipe', 'pipe_public') %>% 
-#                     str_replace_all('.* [Ww]ell.*', 'well') %>% 
-#                     str_replace_all('.* [Ss]pring.*|[Rr]ainwater|[Rr]iver.*', 'surface'),
-#                   water = str_detect(water, 'pipe.*|well|surface', negate = T) %>% 
-#                     ifelse('other', water)) %>% 
-#     dplyr::mutate(toilet = hv205 %>% 
-#                     str_replace_all('1[1-6]', 'flush') %>% 
-#                     str_replace_all('2[1-4]', 'pitlat') %>% 
-#                     str_replace_all('31', 'none') %>% 
-#                     str_replace_all('4[1-4]|96', 'other') %>% 
-#                     str_replace_all('99', NA_character_)) %>% 
-#     dplyr::mutate(floor = hv213 %>% 
-#                     str_replace_all('1[1-3]', 'natural') %>% 
-#                     str_replace_all('2[1-3]', 'rudimentary') %>% 
-#                     str_replace_all('3[1-6]', 'finished') %>% 
-#                     str_replace_all('96', 'other') %>% 
-#                     str_replace_all('9[79]', NA_character_)) %>% 
-#     dplyr::mutate(roof = hv215 %>% 
-#                     str_replace_all('1[1-3]', 'natural') %>% 
-#                     str_replace_all('2[1-6]', 'rudimentary') %>% 
-#                     str_replace_all('3[1-9]', 'finished') %>% 
-#                     str_replace_all('96', 'other') %>% 
-#                     str_replace_all('9[79]', NA_character_)) %>% 
-#     dplyr::mutate(cookfuel = sjlabelled::as_label(hv226) %>%
-#                     str_replace_all('9[79]', NA_character_))
-#   
-#   # Factorizing wall variable
-#   
-#   # Specific case for Gabon's wall variable
-#   if(grepl("GA", unique(data[["hv000"]]), fixed = TRUE)){
-#     newdata <- newdata %>% 
-#       mutate(wall = hv214 %>% 
-#                str_replace_all('31', 'natural') %>% 
-#                str_replace_all('1[1-3]|2[1-6]', 'rudimentary') %>% 
-#                str_replace_all('3[2-8]', 'finished') %>% 
-#                str_replace_all('96', 'other') %>% 
-#                str_replace_all('9[79]', NA_character_)) 
-#     
-#   } else if(grepl("MZ", unique(data[["hv000"]]), fixed = TRUE)){ # Specific case for Mozambique's Wall variable
-#     newdata <- newdata %>% 
-#       mutate(wall = hv214 %>% 
-#                str_replace_all('1[1-4]', 'natural') %>% 
-#                str_replace_all('2[1-6]', 'rudimentary') %>% 
-#                str_replace_all('27|3[1-8]|4[1-4]', 'finished') %>% 
-#                str_replace_all('96', 'other') %>% 
-#                str_replace_all('9[79]', NA_character_)) 
-#   } else {
-#     newdata <- newdata %>% 
-#       mutate(wall = hv214 %>% 
-#                str_replace_all('1[1-4]', 'natural') %>% 
-#                str_replace_all('2[1-7]', 'rudimentary') %>% 
-#                str_replace_all('3[1-8]|4[1-4]', 'finished') %>% 
-#                str_replace_all('96', 'other') %>% 
-#                str_replace_all('9[79]', NA_character_)) 
-#   }
-#   
-#   newdata <- newdata %>% select(-hv000, -hv201, -hv205, -hv213, -hv214, -hv215, -hv226)
-#   
-#   return(newdata)
-# }
+preprocess_dhsfactors <- function(data){
+  require(dplyr)
+  require(stringr)
+  require(sjlabelled)
+  newdata <- data %>%
+    dplyr::mutate(water = sjlabelled::as_label(hv201) %>%
+                    str_replace_all('[Pp]iped into dwelling', 'pipe_dwel') %>%
+                    str_replace_all('[Pp]iped to yard/plot', 'pipe_yard') %>%
+                    str_replace_all('[Pp]iped to neighbor', 'pipe_neighbor') %>%
+                    str_replace_all('[Pp]ublic tap/standpipe', 'pipe_public') %>%
+                    str_replace_all('.* [Ww]ell.*', 'well') %>%
+                    str_replace_all('.* [Ss]pring.*|[Rr]ainwater|[Rr]iver.*', 'surface'),
+                  water = str_detect(water, 'pipe.*|well|surface', negate = T) %>%
+                    ifelse('other', water)) %>%
+    dplyr::mutate(toilet = hv205 %>%
+                    str_replace_all('1[1-6]', 'flush') %>%
+                    str_replace_all('2[1-4]', 'pitlat') %>%
+                    str_replace_all('31', 'none') %>%
+                    str_replace_all('4[1-4]|96', 'other') %>%
+                    str_replace_all('99', NA_character_)) %>%
+    dplyr::mutate(floor = hv213 %>%
+                    str_replace_all('1[1-3]', 'natural') %>%
+                    str_replace_all('2[1-3]', 'rudimentary') %>%
+                    str_replace_all('3[1-6]', 'finished') %>%
+                    str_replace_all('96', 'other') %>%
+                    str_replace_all('9[79]', NA_character_)) %>%
+    dplyr::mutate(roof = hv215 %>%
+                    str_replace_all('1[1-3]', 'natural') %>%
+                    str_replace_all('2[1-6]', 'rudimentary') %>%
+                    str_replace_all('3[1-9]', 'finished') %>%
+                    str_replace_all('96', 'other') %>%
+                    str_replace_all('9[79]', NA_character_)) %>%
+    dplyr::mutate(cookfuel = sjlabelled::as_label(hv226) %>%
+                    str_replace_all('9[79]', NA_character_))
+
+  # Factorizing wall variable
+
+  # Specific case for Gabon's wall variable
+  if(grepl("GA", unique(data[["hv000"]]), fixed = TRUE)){
+    newdata <- newdata %>%
+      mutate(wall = hv214 %>%
+               str_replace_all('31', 'natural') %>%
+               str_replace_all('1[1-3]|2[1-6]', 'rudimentary') %>%
+               str_replace_all('3[2-8]', 'finished') %>%
+               str_replace_all('96', 'other') %>%
+               str_replace_all('9[79]', NA_character_))
+
+  } else if(grepl("MZ", unique(data[["hv000"]]), fixed = TRUE)){ # Specific case for Mozambique's Wall variable
+    newdata <- newdata %>%
+      mutate(wall = hv214 %>%
+               str_replace_all('1[1-4]', 'natural') %>%
+               str_replace_all('2[1-6]', 'rudimentary') %>%
+               str_replace_all('27|3[1-8]|4[1-4]', 'finished') %>%
+               str_replace_all('96', 'other') %>%
+               str_replace_all('9[79]', NA_character_))
+  } else {
+    newdata <- newdata %>%
+      mutate(wall = hv214 %>%
+               str_replace_all('1[1-4]', 'natural') %>%
+               str_replace_all('2[1-7]', 'rudimentary') %>%
+               str_replace_all('3[1-8]|4[1-4]', 'finished') %>%
+               str_replace_all('96', 'other') %>%
+               str_replace_all('9[79]', NA_character_))
+  }
+
+  newdata <- newdata %>% select(-hv000, -hv201, -hv205, -hv213, -hv214, -hv215, -hv226)
+
+  return(newdata)
+}
 
 calcASW <- function(data, num.in.cluster, ncores){
   
