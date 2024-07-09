@@ -10,16 +10,16 @@ library(tidyverse)
 source("./input_files/EC_user_functions.R")
 
 # Read in the raw DHS .dta file
-dataset <- haven::read_dta("~/Box/Project 1/DHS Data/ANGOLA 2015 - 2016/AOHR71DT/AOHR71FL.DTA")
+dataset <- haven::read_dta("~/Box/Project 1/DHS Data/BURUNDI (2016) STANDARD DHS DATASET/BURUNDI (2016-2017) STANDARD DHS DATASET/BU_2016-17_DHS_04032024_1335_171933/BUHR71DT/BUHR71FL.DTA")
 
 # Country-code (e.g. "CM18" for Cameroon 2018)
-cc <- "AO15"
+cc <- "BU16"
 
 # Set threshold for maximum allowable missingness (default is 10%)
 max_prop_NA <- 0.1
 
 # Set threshold for maximum allowable imbalance (default is 10%)
-max_imbalance <- 0.07
+max_imbalance <- 0.1
 
 # variable selection
 dataclean <- dataset %>% 
@@ -33,12 +33,12 @@ dataclean <- dataset %>%
   preprocess_dhsfactors() %>% 
   #5
   dplyr::select(where(~sum(is.na(.x))/length(.x) < max_prop_NA)) %>%
-  dplyr::filter(hv237 != 8,
-                hv253 != 8) %>% # loses about 1.56% of dataset (filtered before detecting imbalance)
+  #dplyr::filter(hv201b != 8) %>% 
   #6
   dplyr::select(-which(purrr::map_lgl(., detect_imbalance, max_imbalance)), wt) %>% 
+  
   #7
-  dplyr::select(-c(hv237b, hv246g, hv246h, hv252)) %>% 
+  dplyr::select(-c(hv232y, hv246b, hv246e, hv246g, hv246h, hv246i, hv252)) %>% 
 
   # move weights to front of the dataset
   dplyr::select(wt, everything())

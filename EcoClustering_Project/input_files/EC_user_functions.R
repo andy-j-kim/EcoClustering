@@ -437,7 +437,7 @@ find_cluster_id <- function(data, num_var, num_cluster, nCores){
     wt <- rep(1, nrow(data))
   }
   
-  parD <- parDist(as.matrix(data), method = "hamming", threads = nCores) 
+  parD <- parDist(data.matrix(data), method = "hamming", threads = nCores) 
   wcKMR <- WeightedCluster::wcKMedRange(parD, kvals=num_cluster, weights=wt)
   cluster_id <- wcKMR$clustering %>% 
     unlist() %>% 

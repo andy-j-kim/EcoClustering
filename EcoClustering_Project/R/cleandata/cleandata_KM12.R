@@ -10,16 +10,16 @@ library(tidyverse)
 source("./input_files/EC_user_functions.R")
 
 # Read in the raw DHS .dta file
-dataset <- haven::read_dta("~/Box/Project 1/DHS Data/ANGOLA 2015 - 2016/AOHR71DT/AOHR71FL.DTA")
+dataset <- haven::read_dta("~/Box/Project 1/DHS Data/COMOROS 2012/KMHR61DT/KMHR61FL.DTA")
 
 # Country-code (e.g. "CM18" for Cameroon 2018)
-cc <- "AO15"
+cc <- "KM12"
 
 # Set threshold for maximum allowable missingness (default is 10%)
 max_prop_NA <- 0.1
 
 # Set threshold for maximum allowable imbalance (default is 10%)
-max_imbalance <- 0.07
+max_imbalance <- 0.1
 
 # variable selection
 dataclean <- dataset %>% 
@@ -34,11 +34,16 @@ dataclean <- dataset %>%
   #5
   dplyr::select(where(~sum(is.na(.x))/length(.x) < max_prop_NA)) %>%
   dplyr::filter(hv237 != 8,
-                hv253 != 8) %>% # loses about 1.56% of dataset (filtered before detecting imbalance)
+                !rowSums(across(everything(), ~ . == 9))) %>%  
+  # Note: Weird case for Comoros where there are 9s (not 8s) here and there for every variable, not completely
+  # overlapping across variables either. Unfortunately gets rid of ~370 observations.
+  # From what I briefly saw, the 9s didn't correlate exactly with having or not having other assets,
+  # so ideally it's somehow distributed randomly across the SES groups.
   #6
   dplyr::select(-which(purrr::map_lgl(., detect_imbalance, max_imbalance)), wt) %>% 
+  
   #7
-  dplyr::select(-c(hv237b, hv246g, hv246h, hv252)) %>% 
+  dplyr::select(-c(hv237a, hv246b, hv246c, hv246d, hv246e, hv252, hv253a, hv253b, hv253c, hv253x, hv253z)) %>% 
 
   # move weights to front of the dataset
   dplyr::select(wt, everything())
