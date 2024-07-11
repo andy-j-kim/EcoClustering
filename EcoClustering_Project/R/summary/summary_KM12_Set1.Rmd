@@ -1,0 +1,304 @@
+---
+title: "Economic Clustering Summary Report: Comoros 2012"
+output: 
+  word_document:
+    reference_docx: "summaryscript_style.docx"
+
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=F, message=F, warning=F)
+```
+
+```{r install-packages}
+library(tidyverse)
+library(parallelDist)
+library(haven)
+library(knitr)
+library(kableExtra)
+library(gdtools)
+```
+
+
+```{r user-functions}
+source("./input_files/EC_user_functions.R")
+```
+
+```{r set params and paths}
+cy <- "KM12" # country-year code
+num_var <- 4 # number of variables used to generate clusters
+num_cluster <- 5 # predetermined number of groups (clusters) made from the variables
+num_results <- 10 # of variable sets to print (default: 10)
+set <- 1 # variable set # used for this report (ex: set = 4 uses 4th highest ASW set)
+nCores <- parallel::detectCores()
+
+# Path to the cleaned DHS file
+dhspath <- paste0("./data/cleaned/", cy, "_clean.rds")
+
+# Path to the ASW output file
+aswpath <- paste0("./data/asw/ASW_", cy, "_", num_var, "cluster.rds")
+
+# Paths to raw DHS files here
+hh_path <- "~/Box/Project 1/DHS Data/COMOROS 2012/KMHR61DT/KMHR61FL.DTA"
+ind_path <- "~/Box/Project 1/DHS Data/COMOROS (KM) 2012/KMIR61DT/KMIR61FL.DTA"
+```
+
+```{r read data}
+# read in cleaned DHS file
+dhs <- readRDS(dhspath)
+
+# read in ASW analysis file
+asw_mat <- readRDS(aswpath)
+
+# load in DHS datasets
+
+hh <- haven::read_dta(hh_path) %>% 
+  # filter(any steps taken in the cleaning_CY.Rmd file)
+  preprocess_dhsfactors_adj() %>% 
+  dplyr::filter(hv237 != 8,
+                !rowSums(across(everything(), ~ . == 9))) %>%  
+  mutate(wt = ifelse(hv012 == 0, hv013, hv012)*hv005/1e+06)
+
+
+if(nrow(dhs) != nrow(hh))
+  stop("Error: No. observations in original DHS dataset must match no. observations in the 
+        cleaned HH DHS file. Check cleandata_CY.R file for filtering steps and add them here.")
+
+ind_subset <- haven::read_dta(ind_path) %>% 
+  clean_individual_dhs()
+
+# Assign missing labels to multicat variables
+dhs <- reassign_label(dhs)
+
+# Create data dictionary of DHS labels
+dhs_labels <- create_label_df(dhs)
+```
+
+# Data Summary
+
+**Country Code-year:** `r cy`
+
+**Number of observations:** `r nrow(dhs)`
+
+**Number of variables used:** `r ncol(dhs) - 1`
+
+**Variable set used:** `r paste0(set)`
+
+**Variables used in the algorithm:** `r paste0(names(dhs)[-1], collapse = ", ")`
+
+#
+\pagebreak
+
+# Top `r num_results` Variable Sets (Sorted by ASW)
+
+```{r top variable}
+top_varset_table <- print_top_varsets(asw_mat = asw_mat, 
+                                      num_results = num_results, 
+                                      label_df = dhs_labels)[[1]]
+
+# Save DHS codes
+top_dhscode_table <- print_top_varsets(asw_mat = asw_mat, 
+                                       num_results = num_results, 
+                                       label_df = dhs_labels)[[2]]
+unq.dhscodes <- unique(as.vector(top_dhscode_table))
+
+# Format for display
+top_varset_table.f <- top_varset_table %>% 
+  as.data.frame() %>% 
+  flextable::flextable() %>% 
+  flextable::autofit() %>% 
+  flextable::set_table_properties(layout = "autofit")
+
+knitr::knit_print(top_varset_table.f)
+```
+
+
+#
+\pagebreak
+
+# Marginal Distributions
+
+```{r marg dists}
+marg_dists <- print_margdists(data = dhs,
+                              code_mat = top_dhscode_table)
+
+# Format for display
+marg_dists.f <- marg_dists %>% 
+  as.data.frame() %>% 
+  flextable::flextable() %>% 
+  flextable::autofit() %>% 
+  flextable::set_table_properties(layout = "autofit")
+
+knitr::knit_print(marg_dists.f)
+```
+
+
+#
+\pagebreak
+
+# Cluster Configuration (Set #`r set`)
+
+```{r cluster dist}
+cluster_dist <- print_clus_dist(data = dhs, 
+                                set = set, 
+                                code_mat = top_dhscode_table, 
+                                label_df = dhs_labels, 
+                                nCores = nCores)
+
+# For printing
+cluster_dist_df <- cluster_dist[[1]]
+
+# For validation step
+cluster_dist_ids <- cluster_dist[[2]]
+
+cluster_dist_df.f <- cluster_dist_df %>% 
+  as.data.frame() %>% 
+  flextable::flextable() %>% 
+  flextable::autofit() %>% 
+  flextable::set_table_properties(layout = "autofit")
+
+knitr::knit_print(cluster_dist_df.f)
+```
+
+#
+\pagebreak
+
+# Validation Tables
+
+```{r val tables}
+# create merged HH and Individual dataset
+merged_dhs <- hh %>% 
+  select(hv001, hv002, wt, all_of(unq.dhscodes)) %>% 
+  mutate(id = cluster_dist_ids) %>% 
+  merge(ind_subset, 
+        by.x=c("hv001", "hv002"), 
+        by.y=c("v001", "v002"), all.y=FALSE)
+
+val_tables <- create_validation_tables(merged_data = merged_dhs)
+```
+
+## a.1) Using Children Deceased (Sorted by proportion of 0%)
+
+```{r dec tab}
+# The tables below all have flexible formatting options
+
+if("dectab" %in% names(val_tables)){
+  dectab.f <- val_tables$dectab %>%
+    adorn_totals(where = "row") %>%
+    adorn_percentages(denominator = "row") %>%
+    adorn_pct_formatting() %>% 
+    adorn_ns(position = "front") %>%
+    adorn_title(
+      row_name = "Cluster ID",
+      col_name = "Children Deceased",
+      placement = "combined") %>%
+    flextable::flextable() %>% 
+    flextable::footnote(i = 1, j = 1,
+             ref_symbols = "*",
+             value = as_paragraph(paste("The chi-squared p-value is", 
+                                        round(chisq.test(val_tables$dectab)$p.val,4)))) %>%
+    flextable::autofit() %>% 
+    flextable::set_table_properties(layout = "autofit")
+
+  knitr::knit_print(dectab.f)
+}
+```
+
+
+## a.2) Aggregating proportions greater than 0%
+
+\newline
+
+```{r dec2 tab}
+if("dectab2" %in% names(val_tables)){
+  dectab2.f <- val_tables$dectab2 %>%
+    adorn_totals(where = "row") %>%
+    adorn_percentages(denominator = "row") %>%
+    adorn_pct_formatting() %>% 
+    adorn_ns(position = "front") %>%
+    adorn_title(
+      row_name = "Cluster ID",
+      col_name = "Children Deceased",
+      placement = "combined") %>%
+    flextable::flextable() %>% 
+    flextable::footnote(i = 1, j = 1,
+             ref_symbols = "*",
+             value = as_paragraph(paste("The chi-squared p-value is", 
+                                        round(chisq.test(val_tables$dectab2)$p.val,4)))) %>%
+    flextable::autofit()  %>% 
+    flextable::set_table_properties(layout = "autofit")
+  
+  knitr::knit_print(dectab2.f)
+}
+```
+
+#
+\pagebreak
+
+## b) Using Individual Education Level Attained (Sorted by weighted average by row)
+
+\newline
+
+```{r education tab}
+if("edutab" %in% names(val_tables)){
+  edutab.f <- val_tables$edutab %>%
+    adorn_totals(where = "row") %>%
+    adorn_percentages(denominator = "row") %>%
+    adorn_pct_formatting() %>% 
+    adorn_ns(position = "front") %>%
+    adorn_title(
+      row_name = "Cluster ID",
+      col_name = "Education",
+      placement = "combined") %>% 
+    mutate(`W. Avg.` = round(c(val_tables$ordered_eduid$V2, 
+                         sum(prop.table(as.matrix(colSums(val_tables$edutab[,-1]),1)) * 0:5)),2)) %>%
+    flextable::flextable() %>% 
+    flextable::footnote(i = 1, j = 1, ref_symbols = "*",
+                        value = as_paragraph(paste("The chi-squared p-value is",
+                                        round(wtd.chi.sq(merged_dhs$id,
+                                                         merged_dhs$v149,
+                                                         weight = merged_dhs$v005)[3],4)))) %>%
+    flextable::footnote(i = 1, j = 1, ref_symbols = "a",
+                        value = as_paragraph(paste("0=none, 1=incomplete primary, 2=primary, 3=incomplete secondary, 4=secondary, 5=higher"))) %>% 
+    flextable::autofit() %>% 
+    flextable::set_table_properties(layout = "autofit")
+  
+  knitr::knit_print(edutab.f)
+}
+```
+
+#
+\pagebreak
+
+## c) Using Primary Healthcare Source (Sorted by % enrolled in public healthcare [ascending order])
+
+\newline
+
+
+```{r private health tab}
+if("pritab" %in% names(val_tables)){
+  pritab.f <- val_tables$pritab %>%
+    adorn_totals(where = "row") %>%
+    adorn_percentages(denominator = "row") %>%
+    adorn_pct_formatting() %>% 
+    adorn_ns(position = "front") %>%
+    adorn_title(
+      row_name = "Cluster ID",
+      col_name = "Primary Healthcare Source",
+      placement = "combined") %>%
+    flextable::flextable() %>%
+    footnote(i = 1, j = 1,
+             ref_symbols = "*",
+             value = as_paragraph(paste("The chi-squared p-value is",
+                                        round(chisq.test(val_tables$pritab)$p.val,4)))) %>%
+    footnote(i = 1, j = 1,
+             ref_symbols = "a",
+             value = as_paragraph(paste("0=public/government, 1=private, 2=other"))) %>% 
+    flextable::autofit() %>% 
+    flextable::set_table_properties(layout = "autofit")
+  
+  knitr::knit_print(pritab.f)
+}
+```
+
