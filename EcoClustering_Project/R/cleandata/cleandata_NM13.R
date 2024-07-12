@@ -10,10 +10,10 @@ library(tidyverse)
 source("./input_files/EC_user_functions.R")
 
 # Read in the raw DHS .dta file
-dataset <- haven::read_dta("~/Box/Project 1/DHS Data/LIBERIA (2019-2020) STANDARD DHS DATASET/LIBERIA (2019-2020) STANDARD DHS DATA/LB_2019-20_DHS_04032024_1331_171933/LBHR7ADT/LBHR7AFL.DTA")
+dataset <- haven::read_dta("~/Box/Project 1/DHS Data/NAMIBIA_2013/NMHR61DT/NMHR61FL.DTA")
 
 # Country-code (e.g. "CM18" for Cameroon 2018)
-cc <- "LB19"
+cc <- "NM13"
 
 # Set threshold for maximum allowable missingness (default is 10%)
 max_prop_NA <- 0.1
@@ -33,12 +33,12 @@ dataclean <- dataset %>%
   preprocess_dhsfactors() %>% 
   #5
   dplyr::select(where(~sum(is.na(.x))/length(.x) < max_prop_NA)) %>%
-  dplyr::filter(hv237 != 8) %>% 
+  dplyr::filter(hv237 != 8, hv253 != 8) %>% 
   #6
   dplyr::select(-which(purrr::map_lgl(., detect_imbalance, max_imbalance)), wt) %>% 
   
   #7
-  dplyr::select(-c(hv237b, hv246d, hv246e, hv246g, hv252)) %>% 
+  dplyr::select(-c(hv252, hv253a, sh141, sh147), -starts_with("sh123")) %>% 
 
   # move weights to front of the dataset
   dplyr::select(wt, everything())
