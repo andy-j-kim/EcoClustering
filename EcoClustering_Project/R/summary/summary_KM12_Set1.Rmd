@@ -53,11 +53,20 @@ asw_mat <- readRDS(aswpath)
 
 # load in DHS datasets
 
+# need a workaround for Comoros, cleaning pattern was a bit rough (fix later)
+# vars.for.filt <- haven::read_dta(hh_path) %>% 
+#   dplyr::mutate(wt = ifelse(hv012==0, hv013, hv012)*hv005/1e+06) %>% 
+#   dplyr::select(-contains('_')) %>% 
+#   dplyr::select(wt, hv000, dplyr::starts_with(c('hv2', 'sh1'))) %>%
+#   preprocess_dhsfactors() %>% 
+#   dplyr::select(where(~sum(is.na(.x))/length(.x) < max_prop_NA)) %>% 
+#   names()
+
 hh <- haven::read_dta(hh_path) %>% 
   # filter(any steps taken in the cleaning_CY.Rmd file)
   preprocess_dhsfactors_adj() %>% 
   dplyr::filter(hv237 != 8,
-                !rowSums(across(everything(), ~ . == 9))) %>%  
+                !rowSums(across(names(dhs[-1]), ~ . == 9))) %>%  
   mutate(wt = ifelse(hv012 == 0, hv013, hv012)*hv005/1e+06)
 
 
@@ -173,7 +182,9 @@ merged_dhs <- hh %>%
   mutate(id = cluster_dist_ids) %>% 
   merge(ind_subset, 
         by.x=c("hv001", "hv002"), 
-        by.y=c("v001", "v002"), all.y=FALSE)
+        by.y=c("v001", "v002"), all.y=FALSE) %>% 
+  dplyr::filter(v149 != 9) # added for Comoros specifically, gets rid of 15 inds, doesn't change order
+  # of other tables
 
 val_tables <- create_validation_tables(merged_data = merged_dhs)
 ```

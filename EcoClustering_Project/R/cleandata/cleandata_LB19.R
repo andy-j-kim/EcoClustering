@@ -10,10 +10,10 @@ library(tidyverse)
 source("./input_files/EC_user_functions.R")
 
 # Read in the raw DHS .dta file
-dataset <- haven::read_dta("~/Box/Project 1/DHS Data/COMOROS 2012/KMHR61DT/KMHR61FL.DTA")
+dataset <- haven::read_dta("~/Box/Project 1/DHS Data/LIBERIA (2019-2020) STANDARD DHS DATASET/LIBERIA (2019-2020) STANDARD DHS DATA/LB_2019-20_DHS_04032024_1331_171933/LBHR7ADT/LBHR7AFL.DTA")
 
 # Country-code (e.g. "CM18" for Cameroon 2018)
-cc <- "KM12"
+cc <- "LB19"
 
 # Set threshold for maximum allowable missingness (default is 10%)
 max_prop_NA <- 0.1
@@ -33,21 +33,14 @@ dataclean <- dataset %>%
   preprocess_dhsfactors() %>% 
   #5
   dplyr::select(where(~sum(is.na(.x))/length(.x) < max_prop_NA)) %>%
-  dplyr::filter(hv237 != 8) %>%  
-  # Note: Weird case for Comoros where there are 9s (not 8s) here and there for every variable, not completely
-  # overlapping across variables either. Unfortunately gets rid of ~370 observations. Fix comes later.
+  dplyr::filter(hv237 != 8) %>% 
   #6
   dplyr::select(-which(purrr::map_lgl(., detect_imbalance, max_imbalance)), wt) %>% 
   
   #7
-  dplyr::select(-c(hv237a, hv246b, hv246c, hv246e, hv252, hv253a, hv253b, hv253c, hv253x, hv253z)) %>% 
+  dplyr::select(-c(hv246g, hv252, sh136ca, sh136cb, sh136cc, sh136cd)) %>% 
 
   # move weights to front of the dataset
-  dplyr::select(wt, everything()) %>% 
-  
-  # weird last step, because filtering for 9s earlier gets rid of too much data
-  dplyr::filter(!rowSums(across(everything(), ~ . == 9)))
-  
-  # checked that filtering for 9s after checking for imbalance doesn't create new imbalanced variables
+  dplyr::select(wt, everything())
 
 saveRDS(dataclean, file = paste0("./data/cleaned/", cc, "_clean.rds"))
