@@ -14,7 +14,7 @@ library(parallelDist)
 source("./input_files/EC_user_functions.R")
 
 # Country-code
-cc <- "LE14"
+cc <- "NM13"
 
 # Set the number of asset variables to cluster on (default is 4)
 num_cluster <- 4

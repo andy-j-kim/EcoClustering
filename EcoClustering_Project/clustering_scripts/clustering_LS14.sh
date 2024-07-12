@@ -3,7 +3,7 @@
 ####################
 # SBATCH OPTIONS
 ####################
-#SBATCH --job-name=EcoClustering_LE14
+#SBATCH --job-name=EcoClustering_LS14
 #SBATCH --account=co_biostat
 #SBATCH --partition=savio3
 #SBATCH --nodes=1
@@ -20,4 +20,4 @@
 module load r
 module load r-packages
 module load r-spatial
-R CMD BATCH --no-save ../EcoClustering/R/clustering_LE14.R ../EcoClustering/R_output/clustering_LE14.Rout
+R CMD BATCH --no-save ../EcoClustering/R/clustering_LS14.R ../EcoClustering/R_output/clustering_LS14.Rout
