@@ -1,5 +1,5 @@
 ---
-title: "Economic Clustering Summary Report: Democratic Republic of the Congo 2013-14"
+title: "Economic Clustering Summary Report: Ethiopia 2019"
 output: 
   word_document:
     reference_docx: "summaryscript_style.docx"
@@ -26,7 +26,7 @@ source("./input_files/EC_user_functions.R")
 ```
 
 ```{r set params and paths}
-cy <- "CD13" # country-year code
+cy <- "ET19" # country-year code
 num_var <- 4 # number of variables used to generate clusters
 num_cluster <- 5 # predetermined number of groups (clusters) made from the variables
 num_results <- 10 # of variable sets to print (default: 10)
@@ -40,8 +40,8 @@ dhspath <- paste0("./data/cleaned/", cy, "_clean.rds")
 aswpath <- paste0("./data/asw/ASW_", cy, "_", num_var, "cluster.rds")
 
 # Paths to raw DHS files here
-hh_path <- "~/Box/Project 1/DHS Data/CONGO DEMOCRATIC 2013-14/CDHR61DT/CDHR61FL.DTA"
-ind_path <- "~/Box/Project 1/DHS Data/CONGO DEMOCRATIC (CD) 2013-2014/CDIR61DT/CDIR61FL.DTA"
+hh_path <- "~/Box/Project 1/DHS Data/ETHOPIA 2019/ETHR81DT/ETHR81FL.DTA"
+ind_path <- "~/Box/Project 1/DHS Data/ETHOPIA (ET) 2019/ETIR81DT/ETIR81FL.DTA"
 ```
 
 ```{r read data}

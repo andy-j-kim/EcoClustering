@@ -33,10 +33,11 @@ dataclean <- dataset %>%
   preprocess_dhsfactors() %>% 
   #5
   dplyr::select(where(~sum(is.na(.x))/length(.x) < max_prop_NA)) %>%
-  dplyr::filter(!rowSums(across(everything(), ~ . == 9)),
-                hv253 != 8) %>%
+  dplyr::filter(hv253 != 8) %>%
   # Like Comoros, had to get rid of observations with a 9. This one got rid of a lot, ~1300.
   # Lots of missingness in Ethiopia (NOTE)
+  # Update: move 9 removal to the end, so you only remove based on final vars.
+  # Lose 800 instead of 1300 observations.
   #6
   dplyr::select(-which(purrr::map_lgl(., detect_imbalance, max_imbalance)), wt) %>% 
   
@@ -44,6 +45,7 @@ dataclean <- dataset %>%
   dplyr::select(-c(hv246e, hv246h, hv252)) %>% 
 
   # move weights to front of the dataset
-  dplyr::select(wt, everything())
+  dplyr::select(wt, everything()) %>% 
+  dplyr::filter(!rowSums(across(everything(), ~ . == 9)))
 
 saveRDS(dataclean, file = paste0("./data/cleaned/", cc, "_clean.rds"))
