@@ -39,7 +39,8 @@ dataclean <- dataset %>%
   dplyr::select(-which(purrr::map_lgl(., detect_imbalance, max_imbalance)), wt) %>% 
   
   #7
-  dplyr::select(-c(hv234a, hv237b, hv237c, hv246a, hv246g, hv246h, hv246j, hv252)) %>% 
+  dplyr::select(-c(hv234a, hv237b, hv237c, hv246a, hv246g, hv246h, hv246j, hv252,
+                   sh121a, sh121b, sh122b, sh122c)) %>% 
 
   # move weights to front of the dataset
   dplyr::select(wt, everything())
