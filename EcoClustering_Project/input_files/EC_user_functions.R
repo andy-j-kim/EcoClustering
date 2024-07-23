@@ -619,4 +619,82 @@ create_validation_tables <- function(merged_data){
   return(list_of_tables)
 }
 
+# for countries with irregular education levels
+create_validation_tables2 <- function(merged_data){
+  
+  list_of_tables <- list()
+  
+  if(all(c("de_cat") %in% names(merged_data))){
+    dectab <- merged_data %>%
+      tabyl(id, de_cat, show_missing_levels = FALSE, show_na = FALSE)
+    
+    ordered_decid <- cbind(dectab[,1],
+                           prop.table(as.matrix(dectab[,-1]), 1)) %>% 
+      as.data.frame() %>% 
+      arrange(desc(`0%`)) %>% 
+      select(V1) %>% 
+      unlist()
+    
+    dectab <- dectab[match(ordered_decid, dectab$id),] %>% 
+      as.data.frame()
+    
+    dectab2 <- cbind(dectab[,1:2], rowSums(dectab[,-c(1:2)])) %>% 
+      `colnames<-`(c("id", "0%", ">0%"))
+    
+    ordered_decid2 <- cbind(dectab2[,1], prop.table(as.matrix(dectab2[,-1]), 1)) %>% 
+      as.data.frame() %>% 
+      arrange(desc(`0%`)) %>% 
+      select(V1) %>% 
+      unlist()
+    
+    dectab2 <- dectab2[match(ordered_decid2, dectab2$id),]
+    
+    list_of_tables <- c(list_of_tables, list(dectab = dectab), list(dectab2 = dectab2))
+  }
+  
+  if(all(c("v149") %in% names(merged_data))){
+    
+    num_cluster <- length(unique(merged_data$id))
+    
+    # if country doesn't contain individuals at all education levels 0 --> 5 
+    adjusted_edu_levels <- merged_data$v149 %>% 
+      factor() %>% 
+      levels() %>% 
+      as.numeric()
+    
+    edutab <- merged_data %>%
+      tabyl(id, v149, show_missing_levels = FALSE, show_na = FALSE)
+    
+    # Sorted by weighted average across each row
+    ordered_eduid <- cbind(c(1:num_cluster), 
+                           prop.table(as.matrix(edutab[,-1]), 1) %*% diag(c(adjusted_edu_levels)) %>% 
+                             rowSums()) %>% 
+      as.data.frame() %>% 
+      arrange(desc(V2))
+    
+    edutab <- edutab[match(ordered_eduid$V1, edutab$id),] %>% 
+      as.data.frame()
+    
+    list_of_tables <- c(list_of_tables, list(edutab = edutab), list(ordered_eduid = ordered_eduid))
+  }
+  
+  if(all(c("health") %in% names(merged_data))){
+    pritab <- merged_data %>%
+      tabyl(id, health, show_missing_levels = FALSE, show_na = FALSE)
+    
+    ordered_priid <- cbind(pritab[,1],prop.table(as.matrix(pritab[,-1]), 1)) %>% 
+      as.data.frame() %>% 
+      arrange(`0`) %>% 
+      select(V1) %>% 
+      unlist()
+    
+    pritab <- pritab[match(ordered_priid, pritab$id),] %>% 
+      as.data.frame()
+    
+    list_of_tables <- c(list_of_tables, list(pritab = pritab))
+  }
+  
+  return(list_of_tables)
+}
+
 

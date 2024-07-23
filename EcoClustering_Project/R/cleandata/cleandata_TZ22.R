@@ -10,7 +10,7 @@ library(tidyverse)
 source("./input_files/EC_user_functions.R")
 
 # Read in the raw DHS .dta file
-dataset <- haven::read_dta("~/Box/Project 1/DHS Data/TANZANIA (2022) STANDARD DHS DATASET/TANZANIA (2022) STANDARD DHS DATASET/TZ_2022_DHS_03242024_642_171933/TZHR82DT/")
+dataset <- haven::read_dta("~/Box/Project 1/DHS Data/TANZANIA (2022) STANDARD DHS DATASET/TANZANIA (2022) STANDARD DHS DATASET/TZ_2022_DHS_03242024_642_171933/TZHR82DT/TZHR82FL.DTA")
 
 # Country-code (e.g. "CM18" for Cameroon 2018)
 cc <- "TZ22"
@@ -33,12 +33,12 @@ dataclean <- dataset %>%
   preprocess_dhsfactors() %>% 
   #5
   dplyr::select(where(~sum(is.na(.x))/length(.x) < max_prop_NA)) %>%
-  dplyr::filter(hv237 != 8) %>% 
+  dplyr::filter(hv201b != 8, hv237 != 8) %>% 
   #6
   dplyr::select(-which(purrr::map_lgl(., detect_imbalance, max_imbalance)), wt) %>% 
   
   #7
-  dplyr::select(-c(hv246d, hv246e, hv246g, hv246h, hv252), -starts_with("sh136")) %>% 
+  dplyr::select(-c(hv237a, hv246b, hv246e, hv246g, hv252), -starts_with("sh136"), -starts_with("sh154")) %>% 
 
   # move weights to front of the dataset
   dplyr::select(wt, everything())
