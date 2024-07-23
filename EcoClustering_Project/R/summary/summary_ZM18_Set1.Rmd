@@ -1,5 +1,5 @@
 ---
-title: "Economic Clustering Summary Report: Zimbabwe 2015"
+title: "Economic Clustering Summary Report: Zambia 2018"
 output: 
   word_document:
     reference_docx: "summaryscript_style.docx"
@@ -26,7 +26,7 @@ source("./input_files/EC_user_functions.R")
 ```
 
 ```{r set params and paths}
-cy <- "ZW15" # country-year code
+cy <- "ZM18" # country-year code
 num_var <- 4 # number of variables used to generate clusters
 num_cluster <- 5 # predetermined number of groups (clusters) made from the variables
 num_results <- 10 # of variable sets to print (default: 10)
@@ -40,8 +40,8 @@ dhspath <- paste0("./data/cleaned/", cy, "_clean.rds")
 aswpath <- paste0("./data/asw/ASW_", cy, "_", num_var, "cluster.rds")
 
 # Paths to raw DHS files here
-hh_path <- "~/Box/Project 1/DHS Data/ZIMBABWE_2015/ZWHR72DT/ZWHR72FL.DTA"
-ind_path <- "~/Box/Project 1/DHS Data/ZIMBABWE_2015/ZWIR72DT/ZWIR72FL.DTA"
+hh_path <- "~/Box/Project 1/DHS Data/ZAMBIA_2018/ZMHR71DT/ZMHR71FL.DTA"
+ind_path <- "~/Box/Project 1/DHS Data/ZAMBIA_2018/ZMIR71DT/ZMIR71FL.DTA"
 ```
 
 ```{r read data}
@@ -55,7 +55,7 @@ asw_mat <- readRDS(aswpath)
 hh <- haven::read_dta(hh_path) %>% 
   # filter(any steps taken in the cleaning_CY.Rmd file)
   preprocess_dhsfactors_adj() %>% 
-  dplyr::filter(hv201a !=8, hv237 != 8, hv253 != 8) %>% 
+  dplyr::filter(hv237 != 8, hv253 != 8) %>% 
   mutate(wt = ifelse(hv012 == 0, hv013, hv012)*hv005/1e+06)
 
 if(nrow(dhs) != nrow(hh))
