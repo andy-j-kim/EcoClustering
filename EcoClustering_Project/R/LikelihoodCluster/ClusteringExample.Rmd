@@ -1,0 +1,191 @@
+---
+title: "Cherno"
+author: "Alan Hubbard"
+date: "2024-08-6"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Intro
+Below does data processing (see details) and then 
+1. Clusters variables
+2. Gets new data which is medoids of clusters
+3. clusters observations based on this reduced number of variables
+4. Shows what patterns belong to each cluster.
+
+
+
+
+# Read in Data
+```{r}
+rm(list=ls())
+dat <- readRDS("CM18_clean.rds")
+library(dplyr)
+
+```
+# Get matrix of SES variables
+
+```{r}
+# Get rid of weights row
+dat.clust <- dat[,-c(1)]
+# Remove rows with missing values
+dat.clust.notNA <- na.omit(dat.clust)
+# Convert all variables into binary indicators
+dat.mat <- as.matrix(dat.clust.notNA)
+dat.2 <- as.data.frame(unclass(dat.mat),stringsAsFactors=TRUE)
+source("process-numerics.R")
+source("process-factors.R")
+source("separate_factors_numerics.R")
+source("restrict_by_quantiles.R")
+source("quantiles_equivalent.R")
+source("factors_to_indicators.R")
+source("sum_na.R")
+dat.proc <- process_factors(dat.2)
+# Change factors into dummy variables representing original factor
+dat.dum <- dat.proc$datafac.dum
+```
+
+
+# Cluster
+
+```{r}
+get.likelihood <- function(x,n) {
+px <- prod(table(x)/n)
+}
+dat.dum <- data.frame(dat.dum)
+dat.dum <- na.omit(dat.dum)
+n <- nrow(dat.dum)
+# drop variables without sufficient variability
+maxprop <- function(x,n) {
+  max(table(x)/n)
+}
+mx <- apply(dat.dum,2,maxprop,n)
+dat.dum <- dat.dum[,mx < 0.9 & mx > 0.001]
+
+nmes <- names(dat.dum)
+likel <- apply(dat.dum,2,get.likelihood,n=n)
+nme1 <- nmes[likel == max(likel)]
+nme1
+table(dat.dum[,nme1])/n
+## 
+dat.0 <- dat.dum[dat.dum$hv232y==0,]
+dat.1 <- dat.dum[dat.dum$hv232y==1,]
+dat.0 <- dat.0 %>% select(-hv232y)
+dat.1 <- dat.1 %>% select(-hv232y)
+## get rid of variables with too little variability
+n0 <- nrow(dat.0)
+n1 <- nrow(dat.1)
+mx <- apply(dat.dmlft,2,maxprop,n=n0)
+dat.0 <- dat.0[,mx < 0.9 & mx > 0.001]
+mx <- apply(dat.1,2,maxprop,n=n1)
+dat.1 <- dat.1[,mx < 0.9 & mx > 0.001]
+
+## Level 0
+
+likel <- apply(dat.0,2,get.likelihood,n=n0)
+## Need to work on ties
+nmes <- names(dat.0)
+nme0 <- nmes[likel == max(likel)]
+nme0
+table(dat.0[,nme0])/n0
+
+## Level 1
+likel <- apply(dat.1,2,get.likelihood,n=n1)
+## Need to work on ties
+nmes <- names(dat.1)
+nme1 <- nmes[likel == max(likel)]
+nme1
+table(dat.1[,nme1])/n1
+
+## Level 0
+dat.0.0 <- dat.dum[dat.dum$hv244==0,]
+dat.0.1 <- dat.dum[dat.dum$hv244==1,]
+dat.0.0 <- dat.0.0 %>% select(-hv244)
+dat.0.1 <- dat.0.1 %>% select(-hv244)
+n0 <- nrow(dat.0.0)
+n1 <- nrow(dat.0.1)
+
+
+#0.0
+mx <- apply(dat.0.0,2,maxprop,n=n0)
+dat.0.0 <- dat.0.0[,mx < 0.9 & mx > 0.001]
+likel <- apply(dat.0.0,2,get.likelihood,n=n0)
+## Need to work on ties
+nmes <- names(dat.0.0)
+nme0 <- nmes[likel == max(likel)]
+nme0
+table(dat.0.0[,nme0])/n0
+#0.1
+mx <- apply(dat.0.1,2,maxprop,n=n1)
+dat.0.1 <- dat.0.1[,mx < 0.9 & mx > 0.001]
+likel <- apply(dat.0.1,2,get.likelihood,n=n1)
+nmes <- names(dat.0.1)
+nme1 <- nmes[likel == max(likel)]
+nme1
+table(dat.0.1[,nme1])/n1
+
+## Level 1
+dat.1.0 <- dat.1[dat.1$waterXXwell==0,]
+dat.1.1 <- dat.dum[dat.1$waterXXwell==1,]
+dat.1.0 <- dat.0.0 %>% select(-waterXXwell)
+dat.1.1 <- dat.0.1 %>% select(-waterXXwell)
+n0 <- nrow(dat.1.0)
+n1 <- nrow(dat.1.1)
+
+#1.0
+mx <- apply(dat.1.0,2,maxprop,n=n0)
+dat.1.0 <- dat.1.0[,mx < 0.9 & mx > 0.001]
+likel <- apply(dat.1.0,2,get.likelihood,n=n0)
+nmes <- names(dat.1.0)
+nme0 <- nmes[likel == max(likel)]
+nme0
+table(dat.1.0[,nme0])/n0
+#1.1
+mx <- apply(dat.1.1,2,maxprop,n=n1)
+dat.1.1 <- dat.1.1[,mx < 0.9 & mx > 0.001]
+likel <- apply(dat.1.1,2,get.likelihood,n=n1)
+nmes <- names(dat.1.1)
+nme1 <- nmes[likel == max(likel)]
+nme1
+table(dat.1.1[,nme1])/n1
+
+
+
+
+
+library(parallelDist)
+nCores <- as.numeric(parallel::detectCores())
+# Transform to cluster variables
+t.dum <- t(dat.dum)
+# Get distance between clusters
+parD<-parDist(t.dum, method =  "hamming", threads = nCores) 
+library(cluster)
+# Use PAM to get 4 variable clusters
+pam.out <- pam(parD,k=4,pamonce =6)
+# Get average sihlouette width (measure of how 
+## well it clusters)
+pam.out$silinfo$avg.width
+## Get reduced data set of just the variable cluster medoids
+red.dat <- dat.dum[,pam.out$medoids]
+## Get distance matrix for observations on smaller 
+## variable set
+parD<-parDist(red.dat, method =  "hamming", threads = nCores) 
+# Cluster observations (4 clusters)
+pam.var <- pam(parD,k=4,pamonce =6)
+# Get average sihlouette width 
+pam.var$silinfo$avg.width
+# Get cluster assignment for each row
+clust <- pam.var$clustering
+new.dat <- data.frame(clust=clust,red.dat)
+uni.patterns <- unique(new.dat)
+# Order by cluster number
+oo <- order(uni.patterns$clust)
+uni.patterns <- uni.patterns[oo,]
+uni.patterns
+```
+
