@@ -18,16 +18,15 @@ Below does data processing (see details) and then
 3. clusters observations based on this reduced number of variables
 4. Shows what patterns belong to each cluster.
 
-
-
-
 # Read in Data
+
 ```{r}
 rm(list=ls())
 dat <- readRDS("CM18_clean.rds")
 library(dplyr)
 
 ```
+
 # Get matrix of SES variables
 
 ```{r}
@@ -80,7 +79,7 @@ dat.1 <- dat.1 %>% select(-hv232y)
 ## get rid of variables with too little variability
 n0 <- nrow(dat.0)
 n1 <- nrow(dat.1)
-mx <- apply(dat.dmlft,2,maxprop,n=n0)
+mx <- apply(dat.0,2,maxprop,n=n0)
 dat.0 <- dat.0[,mx < 0.9 & mx > 0.001]
 mx <- apply(dat.1,2,maxprop,n=n1)
 dat.1 <- dat.1[,mx < 0.9 & mx > 0.001]
@@ -153,11 +152,9 @@ nmes <- names(dat.1.1)
 nme1 <- nmes[likel == max(likel)]
 nme1
 table(dat.1.1[,nme1])/n1
+```
 
-
-
-
-
+```{r}
 library(parallelDist)
 nCores <- as.numeric(parallel::detectCores())
 # Transform to cluster variables
@@ -171,7 +168,7 @@ pam.out <- pam(parD,k=4,pamonce =6)
 ## well it clusters)
 pam.out$silinfo$avg.width
 ## Get reduced data set of just the variable cluster medoids
-red.dat <- dat.dum[,pam.out$medoids]
+red.dat <- as.matrix(dat.dum[,pam.out$medoids])
 ## Get distance matrix for observations on smaller 
 ## variable set
 parD<-parDist(red.dat, method =  "hamming", threads = nCores) 
