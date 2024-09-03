@@ -26,7 +26,7 @@ data %>% dplyr::filter(cluster == 1) %>%
   geom_vline(aes(xintercept = mean(asw_mean) + sd(asw_mean)), color = "#000000", linewidth = 1, linetype = "dashed") +
   geom_vline(aes(xintercept = mean(asw_mean) - sd(asw_mean)), color = "#000000", linewidth = 1, linetype = "dashed")
 
-### Figure 2a: Bar chart of each variable count
+### Figure 1: Bar chart of each variable count
 ### https://r-graph-gallery.com/web-horizontal-barplot-with-labels-the-economist.html
 dat <- data %>% dplyr::filter(cluster == 1) %>% 
   group_by(description) %>% summarize(count = n()) %>% 
@@ -95,9 +95,9 @@ plt <- plt +
 
 plt
 
-save(plt, file = "~/Desktop/EcoClustering/metadata/figures/barplot_top10_clus1_assets.pdf")
+save(plt, file = "~/Desktop/EcoClustering/metadata/figures/fig1.pdf")
 
-##### Figure 2b: Bar plot of most common 10 variables in Top Three Clusters
+##### Figure 2: Bar plot of most common 10 variables in Top Three Clusters
 ### https://r-graph-gallery.com/web-horizontal-barplot-with-labels-the-economist.html
 dat <- data %>% 
   group_by(description) %>% summarize(count = n()) %>% 
@@ -116,8 +116,8 @@ plt <- ggplot(dat) +
 
 plt <- plt + 
   scale_x_continuous(
-    limits = c(0, 60),
-    breaks = seq(0, 60, by = 5), 
+    limits = c(0, 65),
+    breaks = seq(0, 65, by = 5), 
     expand = c(0, 0), # The horizontal axis does not extend to either side
     position = "top"  # Labels are located on the top
   ) +
@@ -166,9 +166,119 @@ plt <- plt +
 
 plt
 
-save(plt, file = "~/Desktop/EcoClustering/metadata/figures/barplot_top10_clus123_assets.pdf")
+save(plt, file = "~/Desktop/EcoClustering/metadata/figures/fig2.pdf")
 
-##### Figure 3a: Pie chart by asset category for all 33 countries
+#### Figure 3 + 4 stratified barchart by median of rural-ness, and gini coefficient
+
+###rural: 1 if rural pop greater than median, 0 otherwise
+data$rural <- ifelse(data$percent_rural >= median(data$percent_rural), "High Rural", "Low Rural")
+
+###gini_eq: 1 if gini less than median (more equality), 0 otherwise 
+data$gini_eq <- ifelse(data$gini < median(data$gini), "Low Gini (Less Inequality)", "High Gini (More Inquality)")
+
+###gdp_high: 1 if gdp greater than median (more country wealth), 0 otherwise
+data$gdp_high <- ifelse(data$gdp >= median(data$gdp), 1, 0)
+
+###gdp__per_capita_high: 1 if gdp per capita greater than median (more individual wealth), 0 otherwise
+data$gdp_per_capita_high <- ifelse(data$gdp_per_capita >= median(data$gdp_per_capita), 1, 0)
+
+dat <- data %>% dplyr::filter(cluster == 1) %>% 
+  group_by(rural,description) %>% summarize(count = n()) %>% 
+  arrange(count) %>% top_n(5) %>% arrange(desc(count))
+
+colnames(dat) <- c("rural","name","count")
+
+BLUE <- "#076fa2"
+RED <- "#E3120B"
+BLACK <- "#202020"
+GREY <- "grey50"
+FONT <- "Times New Roman"
+
+plt <- ggplot(dat) +
+  geom_col(aes(count, y = reorder(name,count)), fill = GREY, width = 0.6) + 
+  facet_wrap(~rural)
+
+plt <- plt + 
+  scale_x_continuous(
+    limits = c(0, 16),
+    breaks = seq(0, 14, by = 2), 
+    expand = c(0, 0), # The horizontal axis does not extend to either side
+    position = "bottom"  # Labels are located on the top
+  ) +
+  
+  # The vertical axis only extends upwards 
+  scale_y_discrete(expand = expansion(add = c(0, 0.5))) +
+  theme(
+    # Set background color to white
+    panel.background = element_rect(fill = "white"),
+    # Set the color and the width of the grid lines for the horizontal axis
+    panel.grid.major.x = element_line(color = "#A8BAC4", linewidth = 0.3),
+    # Remove tick marks by setting their length to 0
+    axis.ticks.length = unit(0, "mm"),
+    # Remove the title for both axes
+    axis.title = element_blank(),
+    # Only left line of the vertical axis is painted in black
+    axis.line.y.left = element_line(color = "grey50"),
+    # Remove labels from the vertical axis
+    #axis.text.y = element_blank(),
+    # But customize labels for the horizontal axis
+    axis.text.x = element_text(family = FONT, size = 16)
+  ) #+ labs(title = "The 5-6 assets which appear most frequently in the top clusters for gdp_per_cap_high (=1) vs nonrurual areas")
+
+plt
+
+save(plt, file = "~/Desktop/EcoClustering/metadata/figures/fig3.pdf")
+
+#### Figure 4 stratified barchart by median of Gini coefficient
+
+dat <- data %>% dplyr::filter(cluster == 1) %>% 
+  group_by(gini_eq,description) %>% summarize(count = n()) %>% 
+  arrange(count) %>% top_n(5) %>% arrange(desc(count))
+
+colnames(dat) <- c("gini_eq","name","count")
+
+BLUE <- "#076fa2"
+RED <- "#E3120B"
+BLACK <- "#202020"
+GREY <- "grey50"
+FONT <- "Times New Roman"
+
+plt <- ggplot(dat) +
+  geom_col(aes(count, y = reorder(name,count)), fill = GREY, width = 0.6) + 
+  facet_wrap(~gini_eq)
+
+plt <- plt + 
+  scale_x_continuous(
+    limits = c(0, 16),
+    breaks = seq(0, 14, by = 2), 
+    expand = c(0, 0), # The horizontal axis does not extend to either side
+    position = "bottom"  # Labels are located on the top
+  ) +
+  
+  # The vertical axis only extends upwards 
+  scale_y_discrete(expand = expansion(add = c(0, 0.5))) +
+  theme(
+    # Set background color to white
+    panel.background = element_rect(fill = "white"),
+    # Set the color and the width of the grid lines for the horizontal axis
+    panel.grid.major.x = element_line(color = "#A8BAC4", linewidth = 0.3),
+    # Remove tick marks by setting their length to 0
+    axis.ticks.length = unit(0, "mm"),
+    # Remove the title for both axes
+    axis.title = element_blank(),
+    # Only left line of the vertical axis is painted in black
+    axis.line.y.left = element_line(color = "grey50"),
+    # Remove labels from the vertical axis
+    #axis.text.y = element_blank(),
+    # But customize labels for the horizontal axis
+    axis.text.x = element_text(family = FONT, size = 16)
+  ) #+ labs(title = "The 5-6 assets which appear most frequently in the top clusters for gdp_per_cap_high (=1) vs nonrurual areas")
+
+plt
+
+save(plt, file = "~/Desktop/EcoClustering/metadata/figures/fig4.pdf")
+
+##### Figure 5a: Pie chart by asset category for all 33 countries
 
 dat <- data %>% filter(cluster == 1) %>% 
   group_by(asset_category) %>%
