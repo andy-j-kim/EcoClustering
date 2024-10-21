@@ -20,7 +20,6 @@ library(kableExtra)
 library(gdtools)
 ```
 
-
 ```{r user-functions}
 source("./input_files/EC_user_functions.R")
 ```
@@ -298,4 +297,3 @@ if("pritab" %in% names(val_tables)){
   knitr::knit_print(pritab.f)
 }
 ```
-
