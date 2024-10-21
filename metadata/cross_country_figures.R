@@ -278,6 +278,8 @@ plt
 
 save(plt, file = "~/Desktop/EcoClustering/metadata/figures/fig4.pdf")
 
+##### TO BE MODIFIED/BRAINSTORMED AFTER THIS POINT
+
 ##### Figure 5a: Pie chart by asset category for all 33 countries
 
 dat <- data %>% filter(cluster == 1) %>% 
@@ -310,11 +312,6 @@ ggplot(data=dat)+
   theme_void() +
   labs(title = "Pie Chart of Asset Category Distribution among the Top Clusters")
 #geom_text(aes(x=1, y = ypos, label=label))
-
-##### Figure 3b: Stratified Pie Charts by Country variables like gini, gdp, and rural
-##### Idea: then compare these to the metadata 
-
-##### Figure 4a-b: Same stratified for the top variables 
 
 ##### Figure 5: Africa Map,  https://gld.gu.se/media/1702/usingrformapmaking_notes.pdf
 
