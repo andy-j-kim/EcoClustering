@@ -1,0 +1,477 @@
+---
+title: "Economic Clustering Summary Report: Malawi 2015-16"
+output: 
+  word_document:
+    reference_docx: "summaryscript_style.docx"
+
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=F, message=F, warning=F)
+```
+
+```{r install-packages}
+library(tidyverse)
+library(parallelDist)
+library(haven)
+library(knitr)
+library(kableExtra)
+library(gdtools)
+```
+
+```{r user-functions}
+source("./input_files/EC_user_functions.R")
+```
+
+```{r set params and paths}
+cy <- "MW15" # country-year code
+num_var <- 4 # number of variables used to generate clusters
+num_cluster <- 5 # predetermined number of groups (clusters) made from the variables
+num_results <- 10 # of variable sets to print (default: 10)
+set <- 1 # variable set # used for this report (ex: set = 4 uses 4th highest ASW set)
+nCores <- parallel::detectCores()
+
+# Path to the cleaned DHS file
+dhspath <- paste0("./data/cleaned/", cy, "_clean.rds")
+
+# Path to the ASW output file
+aswpath <- paste0("./data/asw/ASW_", cy, "_", num_var, "cluster.rds")
+
+# Paths to raw DHS files here
+hh_path <- "~/Box/Project 1/DHS Data/MALAWI (2015-16) STANDARD DHS DATASET/MALAWI (2015-16) STANDARD DHS DATASET/MW_2015-16_DHS_03242024_659_171933/MWHR7ADT/MWHR7AFL.DTA"
+ind_path <- "~/Box/Project 1/DHS Data/MALAWI (2015-16) STANDARD DHS DATASET/MALAWI (2015-16) STANDARD DHS DATASET/MW_2015-16_DHS_03242024_659_171933/MWIR7ADT/MWIR7AFL.DTA"
+```
+
+```{r read data}
+# read in cleaned DHS file
+dhs <- readRDS(dhspath)
+
+# read in ASW analysis file
+asw_mat <- readRDS(aswpath)
+
+# load in DHS datasets
+hh <- haven::read_dta(hh_path) %>% 
+  # filter(any steps taken in the cleaning_CY.Rmd file)
+  preprocess_dhsfactors_adj() %>% 
+  dplyr::filter(hv237 != 8, hv253 != 8) %>% 
+  mutate(wt = ifelse(hv012 == 0, hv013, hv012)*hv005/1e+06)
+
+if(nrow(dhs) != nrow(hh))
+  stop("Error: No. observations in original DHS dataset must match no. observations in the 
+        cleaned HH DHS file. Check cleandata_CY.R file for filtering steps and add them here.")
+
+ind_subset <- haven::read_dta(ind_path) %>% 
+  clean_individual_dhs()
+
+# Assign missing labels to multicat variables
+dhs <- reassign_label(dhs)
+
+# Create data dictionary of DHS labels
+dhs_labels <- create_label_df(dhs)
+```
+
+# Data Summary
+
+**Country Code-year:** `r cy`
+
+**Number of observations:** `r nrow(dhs)`
+
+**Number of variables used:** `r ncol(dhs) - 1`
+
+**Variable set used:** `r paste0(set)`
+
+**Variables used in the algorithm:** `r paste0(names(dhs)[-1], collapse = ", ")`
+
+\pagebreak
+
+# Top `r num_results` Variable Sets (Sorted by ASW)
+
+```{r top variable}
+top_varset_table <- print_top_varsets(asw_mat = asw_mat, 
+                                      num_results = num_results, 
+                                      label_df = dhs_labels)[[1]]
+
+# Save DHS codes
+top_dhscode_table <- print_top_varsets(asw_mat = asw_mat, 
+                                       num_results = num_results, 
+                                       label_df = dhs_labels)[[2]]
+unq.dhscodes <- unique(as.vector(top_dhscode_table))
+
+# Format for display
+top_varset_table.f <- top_varset_table %>% 
+  as.data.frame() %>% 
+  flextable::flextable() %>% 
+  flextable::autofit() %>% 
+  flextable::set_table_properties(layout = "autofit")
+
+knitr::knit_print(top_varset_table.f)
+```
+
+
+#
+\pagebreak
+
+# Marginal Distributions
+
+```{r marg dists}
+marg_dists <- print_margdists(data = dhs,
+                              code_mat = top_dhscode_table)
+
+# Format for display
+marg_dists.f <- marg_dists %>% 
+  as.data.frame() %>% 
+  flextable::flextable() %>% 
+  flextable::autofit() %>% 
+  flextable::set_table_properties(layout = "autofit")
+
+knitr::knit_print(marg_dists.f)
+```
+
+
+#
+\pagebreak
+
+# Cluster Configuration (Set #`r set`)
+
+```{r cluster dist}
+cluster_dist <- print_clus_dist(data = dhs, 
+                                set = set, 
+                                code_mat = top_dhscode_table, 
+                                label_df = dhs_labels, 
+                                nCores = nCores)
+
+# For printing
+cluster_dist_df <- cluster_dist[[1]]
+
+# For validation step
+cluster_dist_ids <- cluster_dist[[2]]
+
+cluster_dist_df.f <- cluster_dist_df %>% 
+  as.data.frame() %>% 
+  flextable::flextable() %>% 
+  flextable::autofit() %>% 
+  flextable::set_table_properties(layout = "autofit")
+
+knitr::knit_print(cluster_dist_df.f)
+```
+
+#
+\pagebreak
+
+# Validation Tables
+
+```{r val tables}
+# create merged HH and Individual dataset
+merged_dhs <- hh %>% 
+  select(hv001, hv002, wt, all_of(unq.dhscodes)) %>% 
+  mutate(id = cluster_dist_ids) %>% 
+  merge(ind_subset, 
+        by.x=c("hv001", "hv002"), 
+        by.y=c("v001", "v002"), all.y=FALSE)
+
+val_tables <- create_validation_tables(merged_data = merged_dhs)
+```
+
+## a.1) Using Children Deceased (Sorted by proportion of 0%)
+
+```{r dec tab}
+# The tables below all have flexible formatting options
+
+if("dectab" %in% names(val_tables)){
+  dectab.f <- val_tables$dectab %>%
+    adorn_totals(where = "row") %>%
+    adorn_percentages(denominator = "row") %>%
+    adorn_pct_formatting() %>% 
+    adorn_ns(position = "front") %>%
+    adorn_title(
+      row_name = "Cluster ID",
+      col_name = "Children Deceased",
+      placement = "combined") %>%
+    flextable::flextable() %>% 
+    flextable::footnote(i = 1, j = 1,
+             ref_symbols = "*",
+             value = as_paragraph(paste("The chi-squared p-value is", 
+                                        round(chisq.test(val_tables$dectab)$p.val,4)))) %>%
+    flextable::autofit() %>% 
+    flextable::set_table_properties(layout = "autofit")
+
+  knitr::knit_print(dectab.f)
+}
+```
+
+
+## a.2) Aggregating proportions greater than 0%
+
+\newline
+
+```{r dec2 tab}
+if("dectab2" %in% names(val_tables)){
+  dectab2.f <- val_tables$dectab2 %>%
+    adorn_totals(where = "row") %>%
+    adorn_percentages(denominator = "row") %>%
+    adorn_pct_formatting() %>% 
+    adorn_ns(position = "front") %>%
+    adorn_title(
+      row_name = "Cluster ID",
+      col_name = "Children Deceased",
+      placement = "combined") %>%
+    flextable::flextable() %>% 
+    flextable::footnote(i = 1, j = 1,
+             ref_symbols = "*",
+             value = as_paragraph(paste("The chi-squared p-value is", 
+                                        round(chisq.test(val_tables$dectab2)$p.val,4)))) %>%
+    flextable::autofit()  %>% 
+    flextable::set_table_properties(layout = "autofit")
+  
+  knitr::knit_print(dectab2.f)
+}
+```
+
+#
+\pagebreak
+
+## b) Using Individual Education Level Attained (Sorted by weighted average by row)
+
+\newline
+
+```{r education tab}
+if("edutab" %in% names(val_tables)){
+  edutab.f <- val_tables$edutab %>%
+    adorn_totals(where = "row") %>%
+    adorn_percentages(denominator = "row") %>%
+    adorn_pct_formatting() %>% 
+    adorn_ns(position = "front") %>%
+    adorn_title(
+      row_name = "Cluster ID",
+      col_name = "Education",
+      placement = "combined") %>% 
+    mutate(`W. Avg.` = round(c(val_tables$ordered_eduid$V2, 
+                         sum(prop.table(as.matrix(colSums(val_tables$edutab[,-1]),1)) * 0:5)),2)) %>%
+    flextable::flextable() %>% 
+    flextable::footnote(i = 1, j = 1, ref_symbols = "*",
+                        value = as_paragraph(paste("The chi-squared p-value is",
+                                        round(wtd.chi.sq(merged_dhs$id,
+                                                         merged_dhs$v149,
+                                                         weight = merged_dhs$v005)[3],4)))) %>%
+    flextable::footnote(i = 1, j = 1, ref_symbols = "a",
+                        value = as_paragraph(paste("0=none, 1=incomplete primary, 2=primary, 3=incomplete secondary, 4=secondary, 5=higher"))) %>% 
+    flextable::autofit() %>% 
+    flextable::set_table_properties(layout = "autofit")
+  
+  knitr::knit_print(edutab.f)
+}
+```
+
+#
+\pagebreak
+
+## c) Using Primary Healthcare Source (Sorted by % enrolled in public healthcare [ascending order])
+
+\newline
+
+
+```{r private health tab}
+if("pritab" %in% names(val_tables)){
+  pritab.f <- val_tables$pritab %>%
+    adorn_totals(where = "row") %>%
+    adorn_percentages(denominator = "row") %>%
+    adorn_pct_formatting() %>% 
+    adorn_ns(position = "front") %>%
+    adorn_title(
+      row_name = "Cluster ID",
+      col_name = "Primary Healthcare Source",
+      placement = "combined") %>%
+    flextable::flextable() %>%
+    footnote(i = 1, j = 1,
+             ref_symbols = "*",
+             value = as_paragraph(paste("The chi-squared p-value is",
+                                        round(chisq.test(val_tables$pritab)$p.val,4)))) %>%
+    footnote(i = 1, j = 1,
+             ref_symbols = "a",
+             value = as_paragraph(paste("0=public/government, 1=private, 2=other"))) %>% 
+    flextable::autofit() %>% 
+    flextable::set_table_properties(layout = "autofit")
+  
+  knitr::knit_print(pritab.f)
+}
+```
+
+\pagebreak
+
+## Ordered Logistic Using ordinal::clm
+
+This implements a Test of Trend and extracts the p-values for the validation variables. The p-values come from a one-sided hypothesis test that the coefficient of the rank in the model is positive, so that as the rank increases (become more asset heavy) the validation variable increases (assuming its values imply increasing wealth/SES).
+
+
+```{r}
+###### Functions
+#Convert any non-numeric variables
+map_cat_to_double <- function(df, level_list = list()) {
+    df %>%
+      mutate(across(where(~ is.factor(.) || is.character(.)), 
+                  ~ {
+                    col_name <- cur_column()
+                    if (col_name %in% names(level_list)) {
+                      # Use the user-specified levels if provided
+                      f <- factor(., levels = level_list[[col_name]])
+                    } else {
+                      # Use the default factor levels
+                      f <- factor(.)
+                    }
+                    
+                    levels_mapping <- levels(f)
+                    numeric_codes <- as.numeric(f)
+                    
+                    # Print the mapping of factor levels to numeric codes
+                    cat("Mapping for column:", col_name, "\n")
+                    print(setNames(seq_along(levels_mapping), levels_mapping))
+                    cat("\n")
+                    
+                    as.double(numeric_codes)
+                  }))
+}
+
+ord_log_fxn <- function(data, i, tab, nCores, merged_dhs,levels = NULL){
+  
+  ##### Extract the variables from clustering i
+  ##### and get the cluster distribution in the data
+  #vars <- as.vector(as.matrix(tab[i,3:6])) 
+  vars <- dhs_labels$dhs_code[which(dhs_labels$dhs_label %in% as.vector(as.matrix(tab[i,3:6])))]
+  sub_data <- data %>% dplyr::select("wt", vars)
+  names <- colnames(sub_data)[-1]
+  out <- find_cluster_id(sub_data,num_var,num_cluster,nCores)
+  
+  ##### Modify sub data if any columns are characters
+  ##### Modify levels as needed
+  if(any(sapply(sub_data, is.character))){
+      sub_data <- map_cat_to_double(sub_data, levels)
+  }
+  
+  ##### Add the encodings of the clusters and node values
+  sub_data$clus <- paste0(unname(unlist(sub_data[,vars[1]])), 
+                      unname(unlist(sub_data[,vars[2]])),
+                      unname(unlist(sub_data[,vars[3]])),
+                      unname(unlist(sub_data[,vars[4]]))
+  )
+  sub_data$node <- out
+  
+  ##### Create summary data of each cluster node
+  grouped <- sub_data %>% group_by(node) %>% 
+    group_by(clus) %>%
+    summarise(node = unique(node),
+              var1 = first(!!as.name(names[1])),
+              var2 = first(!!as.name(names[2])),
+              var3 = first(!!as.name(names[3])),
+              var4 = first(!!as.name(names[4])))
+  grouped$node <- as.numeric(as.factor(as.character(grouped$node)))
+  colnames(grouped) <- c("clus","node", names)
+  grouped$prop <- prop.table(table(sub_data$clus))*100
+  
+  ##### Run the cluster configuration function
+  ##### Take note of what you set as i, as this will correspond 
+  ##### To the variables you're analyzing from the top cluster results
+  #grouped <- clus_config_ordered(data = dhs, i=i, tab=top_varset_table, nCores = nCores)
+
+  ##### Now, we count the average number of assets of each node in the cluster
+  grouped$assets <- apply(grouped %>% dplyr::select(-c(clus,node,prop)), MARGIN = 1, sum)
+  grouped_meta <- grouped %>% group_by(node) %>% 
+    summarise(ave_asset = mean(assets),
+              min_asset = min(assets),
+              max_asset = max(assets),
+              tot_prop = sum(prop)/100
+              )
+
+  ##### Create the rank variable, which gives the highest value to the most asset heavy
+  ##### groups, and the lowest value to the least asset heavy
+  grouped_meta$rank <- rank(grouped_meta$ave_asset)
+
+  ##### Check for inequalities in the rank to get the cluster scoring
+  ##### The score is defined as the proportion of the population that 
+  ##### You'd need to re-rank to break any ties in the asset-scoring
+  ##### So if two clusters have the same rank, we could break this tie
+  ##### By reordering them and moving the smallest proportion cluster
+
+  score <- 0
+  if(length(unique(grouped_meta$rank)) != nrow(grouped_meta)){
+    for(r in unique(grouped_meta$rank)){
+      tmp <- grouped_meta %>% filter(rank == r)
+      if(nrow(tmp) > 1){
+        score <- score + sum(tmp$tot_prop) - max(tmp$tot_prop)
+      }
+   }
+  }
+
+  print(paste0("Evaluation score",score))
+  ##### A final cleaned grouped dataset with summary data
+  group_final <- merge(grouped, grouped_meta, by = "node")
+  
+  ##### Use "merged_data" combining household and individual data
+  ##### As loaded in an above code chunk
+
+  ##### NOTE: if you had to recode a non-binary variable like roof
+  ##### You should replace it here with the categorical coding to run this smoothly
+  #####
+  ##### Here is where you'd reinstate the roof variable with its categorical values
+  ##### Make sure to add it to the "hh" dataset as seen above
+  ##### hh$roof <- dhs$roof
+  ##### Then, you'd need to remerge the data
+
+  ##### Get clustering value to merge for ordinal logistic data
+  vars <- dhs_labels$dhs_code[which(dhs_labels$dhs_label %in% as.vector(as.matrix(tab[i,3:6])))]
+
+  merged_dhs$clus <- paste0(unname(unlist(merged_dhs[,vars[1]])), 
+                        unname(unlist(merged_dhs[,vars[2]])),
+                        unname(unlist(merged_dhs[,vars[3]])),
+                        unname(unlist(merged_dhs[,vars[4]]))
+  )
+
+  ord_log_data <- merge(merged_dhs,group_final[,c("clus","rank")],by="clus")
+  return(ord_log_data)
+}
+
+ord_log_analysis <- function(ord_log_data){
+  library(ordinal)
+  ##### May need to modify outcome variables where appropriate
+
+  ##### Reorder de_cat variable so that worst outcome is lowest
+  ##### Need 0 = 67+%, 1 = 34-66%, etc...
+  ord_log_data$de_cat <- factor(ord_log_data$de_cat, levels = c("67+%","34-66%","1-33%","0%"))
+  ord_log_decat <- clm(de_cat ~ rank, data = ord_log_data)
+  res_decat <- summary(ord_log_decat)
+
+  ##### No reordering needs to occur with education
+  ord_log_educ <- clm(factor(v149) ~ rank, data = ord_log_data)
+  res_educ <- summary(ord_log_educ)
+
+  ##### Need to remove 2 = "other" observations from health analysis
+  ##### 0 = public, 1 = private
+  ord_log_subset_health <- ord_log_data %>% filter(health != 2)
+  ord_log_health <- clm(factor(health) ~ rank, data = ord_log_subset_health)
+  res_health <- summary(ord_log_health)
+
+  ##### Let H1 be the alternative hypothesis
+  ##### For H1: beta < 0 set lower = TRUE, for H1: beta > 0, set lower = FALSE
+  p_decat <- pt(coef(res_decat)["rank",3], ord_log_decat$df, lower = FALSE)
+  p_educ <- pt(coef(res_educ)["rank",3], ord_log_educ$df, lower = FALSE)
+  p_health <- pt(coef(res_health)["rank",3], ord_log_health$df, lower = FALSE)
+  
+  res <- as.data.frame(rbind(summary(ord_log_decat)$coefficients["rank",c("Estimate","Std. Error")] %>% unname(),
+        summary(ord_log_educ)$coefficients["rank",c("Estimate","Std. Error")] %>% unname(),
+        summary(ord_log_health)$coefficients["rank",c("Estimate","Std. Error")] %>% unname()))
+  
+  colnames(res) <- c("logOR","se(logOR)")
+  res$var <- c("Mortality","Education","Health")
+  
+  print(res)
+}
+```
+
+```{r}
+ord_log_data <- ord_log_fxn(data = dhs, i=1, tab=top_varset_table, 
+                                    nCores = nCores, merged_dhs=merged_dhs,
+                            levels = list(floor = c("rudimentary","natural","other","finished")))
+
+ord_log_analysis(ord_log_data)
+```
+
