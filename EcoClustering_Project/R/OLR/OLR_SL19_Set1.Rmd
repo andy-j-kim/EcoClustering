@@ -1,5 +1,5 @@
 ---
-title: "Economic Clustering Summary Report: Namibia 2013"
+title: "Economic Clustering Summary Report: Sierra Leone 2019"
 output: 
   word_document:
     reference_docx: "summaryscript_style.docx"
@@ -26,7 +26,7 @@ source("./input_files/EC_user_functions.R")
 ```
 
 ```{r set params and paths}
-cy <- "NM13" # country-year code
+cy <- "SL19" # country-year code
 num_var <- 4 # number of variables used to generate clusters
 num_cluster <- 5 # predetermined number of groups (clusters) made from the variables
 num_results <- 10 # of variable sets to print (default: 10)
@@ -40,8 +40,8 @@ dhspath <- paste0("./data/cleaned/", cy, "_clean.rds")
 aswpath <- paste0("./data/asw/ASW_", cy, "_", num_var, "cluster.rds")
 
 # Paths to raw DHS files here
-hh_path <- "~/Box/Project 1/DHS Data/NAMIBIA_2013/NMHR61DT/NMHR61FL.DTA"
-ind_path <- "~/Box/Project 1/DHS Data/NAMIBIA_2013/NMIR61DT/NMIR61FL.DTA"
+hh_path <- "~/Box/Project 1/DHS Data/SIERRA LEONE 2019/SLHR7ADT/SLHR7AFL.DTA"
+ind_path <- "~/Box/Project 1/DHS Data/SIERRA LEONE (SL)  2019/SLIR7ADT/SLIR7AFL.DTA"
 ```
 
 ```{r read data}
@@ -55,7 +55,7 @@ asw_mat <- readRDS(aswpath)
 hh <- haven::read_dta(hh_path) %>% 
   # filter(any steps taken in the cleaning_CY.Rmd file)
   preprocess_dhsfactors_adj() %>% 
-  dplyr::filter(hv237 != 8, hv253 != 8) %>% 
+  dplyr::filter(hv237 != 8) %>% 
   mutate(wt = ifelse(hv012 == 0, hv013, hv012)*hv005/1e+06)
 
 if(nrow(dhs) != nrow(hh))
@@ -71,18 +71,6 @@ dhs <- reassign_label(dhs)
 # Create data dictionary of DHS labels
 dhs_labels <- create_label_df(dhs)
 ```
-
-# Data Summary
-
-**Country Code-year:** `r cy`
-
-**Number of observations:** `r nrow(dhs)`
-
-**Number of variables used:** `r ncol(dhs) - 1`
-
-**Variable set used:** `r paste0(set)`
-
-**Variables used in the algorithm:** `r paste0(names(dhs)[-1], collapse = ", ")`
 
 #
 \pagebreak
@@ -109,6 +97,7 @@ top_varset_table.f <- top_varset_table %>%
 
 knitr::knit_print(top_varset_table.f)
 ```
+
 
 #
 \pagebreak
@@ -151,14 +140,16 @@ merged_dhs <- hh %>%
         by.x=c("hv001", "hv002"), 
         by.y=c("v001", "v002"), all.y=FALSE)
 
-val_tables <- create_validation_tables(merged_data = merged_dhs)
+val_tables <- create_validation_tables2(merged_data = merged_dhs)
 ```
+
 
 \pagebreak
 
 ## Ordered Logistic Using ordinal::clm
 
 This implements a Test of Trend and extracts the p-values for the validation variables. The p-values come from a one-sided hypothesis test that the coefficient of the rank in the model is positive, so that as the rank increases (become more asset heavy) the validation variable increases (assuming its values imply increasing wealth/SES).
+
 
 ```{r}
 ord_log_data <- ord_log_fxn(data = dhs, i=1, tab=top_varset_table, 
