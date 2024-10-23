@@ -697,4 +697,140 @@ create_validation_tables2 <- function(merged_data){
   return(list_of_tables)
 }
 
+#Convert any non-numeric variables
+map_cat_to_double <- function(df, level_list = list()) {
+  df %>%
+    mutate(across(where(~ is.factor(.) || is.character(.)), 
+                  ~ {
+                    col_name <- cur_column()
+                    if (col_name %in% names(level_list)) {
+                      # Use the user-specified levels if provided
+                      f <- factor(., levels = level_list[[col_name]])
+                    } else {
+                      # Use the default factor levels
+                      f <- factor(.)
+                    }
+                    
+                    levels_mapping <- levels(f)
+                    numeric_codes <- as.numeric(f)
+                    
+                    # Print the mapping of factor levels to numeric codes
+                    cat("Mapping for column:", col_name, "\n")
+                    print(setNames(seq_along(levels_mapping), levels_mapping))
+                    cat("\n")
+                    
+                    as.double(numeric_codes)
+                  }))
+}
+
+ord_log_fxn <- function(data, i, tab, nCores, merged_dhs,levels = NULL){
+  
+  ##### Extract the variables from clustering i
+  ##### and get the cluster distribution in the data
+  #vars <- as.vector(as.matrix(tab[i,3:6])) 
+  vars <- dhs_labels$dhs_code[which(dhs_labels$dhs_label %in% as.vector(as.matrix(tab[i,] %>% dplyr::select(-c("Set","ASW")))))]
+  sub_data <- data %>% dplyr::select("wt", vars)
+  names <- colnames(sub_data)[-1]
+  out <- find_cluster_id(sub_data,num_var,num_cluster,nCores)
+  
+  ##### Modify sub data if any columns are characters
+  ##### Modify levels as needed
+  if(any(sapply(sub_data, is.character))){
+    sub_data <- map_cat_to_double(sub_data, levels)
+  }
+  
+  ##### Add the encodings of the clusters and node values
+  
+  sub_data$clus <- do.call(paste0, lapply(vars, function(var) unname(unlist(sub_data[, var]))))
+  sub_data$node <- out
+  
+  ##### Create summary data of each cluster node
+  grouped <- sub_data %>%
+    group_by(node) %>%
+    group_by(clus, .add = TRUE) %>%
+    summarise(
+      node = unique(node),
+      across(all_of(names), first, .names = "{col}")
+    )
+  grouped$node <- as.numeric(as.factor(as.character(grouped$node)))
+  grouped$prop <- prop.table(table(sub_data$clus))*100
+  
+  ##### Now, we count the average number of assets of each node in the cluster
+  grouped$assets <- apply(grouped %>% dplyr::select(-c(clus,node,prop)), MARGIN = 1, sum)
+  grouped_meta <- grouped %>% group_by(node) %>% 
+    summarise(ave_asset = mean(assets),
+              min_asset = min(assets),
+              max_asset = max(assets),
+              tot_prop = sum(prop)/100
+    )
+  
+  ##### Create the rank variable, which gives the highest value to the most asset heavy
+  ##### groups, and the lowest value to the least asset heavy
+  grouped_meta$rank <- rank(grouped_meta$ave_asset)
+  
+  ##### Check for inequalities in the rank to get the cluster scoring
+  ##### The score is defined as the proportion of the population that 
+  ##### You'd need to re-rank to break any ties in the asset-scoring
+  ##### So if two clusters have the same rank, we could break this tie
+  ##### By reordering them and moving the smallest proportion cluster
+  
+  score <- 0
+  if(length(unique(grouped_meta$rank)) != nrow(grouped_meta)){
+    for(r in unique(grouped_meta$rank)){
+      tmp <- grouped_meta %>% filter(rank == r)
+      if(nrow(tmp) > 1){
+        score <- score + sum(tmp$tot_prop) - max(tmp$tot_prop)
+      }
+    }
+  }
+  
+  print(paste0("Evaluation score: ",score))
+  ##### A final cleaned grouped dataset with summary data
+  group_final <- merge(grouped, grouped_meta, by = "node")
+  
+  ##### Use "merged_data" combining household and individual data
+  ##### Get clustering value to merge for ordinal logistic data
+  
+  merged_dhs$clus <- do.call(paste0, lapply(vars, function(var) unname(unlist(merged_dhs[, var]))))
+  
+  ord_log_data <- merge(merged_dhs,group_final[,c("clus","rank")],by="clus")
+  return(ord_log_data)
+}
+
+ord_log_analysis <- function(ord_log_data){
+  library(ordinal)
+  ##### May need to modify outcome variables where appropriate
+  
+  ##### Reorder de_cat variable so that worst outcome is lowest
+  ##### Need 0 = 67+%, 1 = 34-66%, etc...
+  ord_log_data$de_cat <- factor(ord_log_data$de_cat, levels = c("67+%","34-66%","1-33%","0%"))
+  ord_log_decat <- clm(de_cat ~ rank, data = ord_log_data)
+  res_decat <- summary(ord_log_decat)
+  
+  ##### No reordering needs to occur with education
+  ord_log_educ <- clm(factor(v149) ~ rank, data = ord_log_data)
+  res_educ <- summary(ord_log_educ)
+  
+  ##### Need to remove 2 = "other" observations from health analysis
+  ##### 0 = public, 1 = private
+  ord_log_subset_health <- ord_log_data %>% filter(health != 2)
+  ord_log_health <- clm(factor(health) ~ rank, data = ord_log_subset_health)
+  res_health <- summary(ord_log_health)
+  
+  ##### Let H1 be the alternative hypothesis
+  ##### For H1: beta < 0 set lower = TRUE, for H1: beta > 0, set lower = FALSE
+  p_decat <- pt(coef(res_decat)["rank",3], ord_log_decat$df, lower = FALSE)
+  p_educ <- pt(coef(res_educ)["rank",3], ord_log_educ$df, lower = FALSE)
+  p_health <- pt(coef(res_health)["rank",3], ord_log_health$df, lower = FALSE)
+  
+  res <- as.data.frame(rbind(summary(ord_log_decat)$coefficients["rank",c("Estimate","Std. Error")] %>% unname(),
+                             summary(ord_log_educ)$coefficients["rank",c("Estimate","Std. Error")] %>% unname(),
+                             summary(ord_log_health)$coefficients["rank",c("Estimate","Std. Error")] %>% unname()))
+  
+  colnames(res) <- c("logOR","se(logOR)")
+  res$var <- c("Mortality","Education","Health")
+  
+  print(res)
+}
+
 
