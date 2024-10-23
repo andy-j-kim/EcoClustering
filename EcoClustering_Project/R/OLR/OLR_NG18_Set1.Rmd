@@ -109,6 +109,33 @@ top_varset_table.f <- top_varset_table %>%
 knitr::knit_print(top_varset_table.f)
 ```
 
+#
+\pagebreak
+
+# Cluster Configuration (Set #`r set`)
+
+```{r cluster dist}
+cluster_dist <- print_clus_dist(data = dhs, 
+                                set = set, 
+                                code_mat = top_dhscode_table, 
+                                label_df = dhs_labels, 
+                                nCores = nCores)
+
+# For printing
+cluster_dist_df <- cluster_dist[[1]]
+
+# For validation step
+cluster_dist_ids <- cluster_dist[[2]]
+
+cluster_dist_df.f <- cluster_dist_df %>% 
+  as.data.frame() %>% 
+  flextable::flextable() %>% 
+  flextable::autofit() %>% 
+  flextable::set_table_properties(layout = "autofit")
+
+knitr::knit_print(cluster_dist_df.f)
+```
+
 # Validation Tables
 
 ```{r val tables}
