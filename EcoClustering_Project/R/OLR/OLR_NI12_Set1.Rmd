@@ -112,24 +112,6 @@ knitr::knit_print(top_varset_table.f)
 ```
 
 
-#
-\pagebreak
-
-# Marginal Distributions
-
-```{r marg dists}
-marg_dists <- print_margdists(data = dhs,
-                              code_mat = top_dhscode_table)
-
-# Format for display
-marg_dists.f <- marg_dists %>% 
-  as.data.frame() %>% 
-  flextable::flextable() %>% 
-  flextable::autofit() %>% 
-  flextable::set_table_properties(layout = "autofit")
-
-knitr::knit_print(marg_dists.f)
-```
 
 
 #
