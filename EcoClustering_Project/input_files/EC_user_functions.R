@@ -199,7 +199,7 @@ preprocess_dhsfactors_adj <- function(data){
 print_top_varsets <- function(asw_mat, num_results, label_df){
   mat <- asw_mat %>% 
     arrange(desc(ASW)) %>%
-    slice(1:num_results)
+    dplyr::slice(1:num_results)
   
   mat2 <- select(mat,-c(ASW))
   
