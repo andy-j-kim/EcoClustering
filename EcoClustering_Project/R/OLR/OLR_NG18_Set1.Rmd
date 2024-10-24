@@ -39,8 +39,11 @@ dhspath <- paste0("./data/cleaned/", cy, "_clean.rds")
 aswpath <- paste0("./data/asw/ASW_", cy, "_", num_var, "cluster.rds")
 
 # Paths to raw DHS files here
-hh_path <- "~/Box/Project 1/DHS Data/NIGERIA_2018/NGHR7BDT/NGHR7BFL.DTA"
-ind_path <- "~/Box/Project 1/DHS Data/NIGERIA_2018/NGIR7BDT/NGIR7BFL.DTA"
+# hh_path <- "~/Box/Project 1/DHS Data/NIGERIA_2018/NGHR7BDT/NGHR7BFL.DTA"
+# ind_path <- "~/Box/Project 1/DHS Data/NIGERIA_2018/NGIR7BDT/NGIR7BFL.DTA"
+
+hh_path <- "~/Library/CloudStorage/Box-Box/Project 1/DHS Data/NIGERIA_2018/NGHR7BDT/NGHR7BFL.DTA"
+ind_path <- "~/Library/CloudStorage/Box-Box/Project 1/DHS Data/NIGERIA_2018/NGIR7BDT/NGIR7BFL.DTA"
 ```
 
 ```{r read data}
