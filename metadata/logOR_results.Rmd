@@ -1,0 +1,61 @@
+---
+title: "Economic Clustering LogOR Plot Report"
+output: 
+  word_document:
+    reference_docx: "summaryscript_style.docx"
+
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=F, message=F, warning=F)
+```
+
+```{r}
+library(meta)
+library(dplyr)
+logORdata <- read.csv("./metadata/logORdata.csv")
+```
+
+```{r}
+### Remove any missing values
+logORdata <- na.omit(logORdata)
+```
+
+### Mortality
+
+```{r}
+mortdata <- logORdata %>% 
+  dplyr::filter(Value == "mortality") %>% 
+  dplyr::select(-Value) 
+mort <- metagen(logOR,seLogOR,sm = "OR",
+                data=mortdata,
+                studlab=Country)
+forest(mort)
+```
+
+### Education
+
+```{r}
+educdata <- logORdata %>% 
+  dplyr::filter(Value == "education") %>% 
+  dplyr::select(-Value) 
+educ <- metagen(logOR,seLogOR,sm = "OR",
+                data=educdata,
+                studlab=Country)
+forest(educ)
+```
+
+### Healthcare
+
+```{r}
+healdata <- logORdata %>% 
+  dplyr::filter(Value == "healthcare") %>% 
+  dplyr::select(-Value) 
+heal <- metagen(logOR,seLogOR,sm = "OR",
+                data=healdata,
+                studlab=Country)
+forest(heal)
+```
+
+
