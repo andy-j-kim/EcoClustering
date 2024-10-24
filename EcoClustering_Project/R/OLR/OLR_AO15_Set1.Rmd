@@ -1,0 +1,168 @@
+---
+title: "Economic Clustering Summary Report: Angola 2015"
+output: 
+  word_document:
+    reference_docx: "summaryscript_style.docx"
+
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=F, message=F, warning=F)
+```
+
+```{r install-packages}
+library(tidyverse)
+library(parallelDist)
+library(haven)
+library(knitr)
+library(kableExtra)
+library(gdtools)
+```
+
+
+```{r user-functions}
+source("./input_files/EC_user_functions.R")
+```
+
+```{r set params and paths}
+cy <- "AO15" # country-year code
+num_var <- 4 # number of variables used to generate clusters
+num_cluster <- 5 # predetermined number of groups (clusters) made from the variables
+num_results <- 10 # of variable sets to print (default: 10)
+set <- 1 # variable set # used for this report (ex: set = 4 uses 4th highest ASW set)
+nCores <- parallel::detectCores()
+
+# Path to the cleaned DHS file
+dhspath <- paste0("./data/cleaned/", cy, "_clean.rds")
+
+# Path to the ASW output file
+aswpath <- paste0("./data/asw/ASW_", cy, "_", num_var, "cluster.rds")
+
+# Paths to raw DHS files here
+hh_path <- "~/Library/CloudStorage/Box-Box/Project 1/DHS Data/ANGOLA 2015 - 2016/AOHR71DT/AOHR71FL.DTA"
+ind_path <- "~/Library/CloudStorage/Box-Box/Project 1/DHS Data/ANGOLA (AO)2015-2016/AOIR71DT/AOIR71FL.DTA"
+```
+
+```{r read data}
+# read in cleaned DHS file
+dhs <- readRDS(dhspath)
+
+# read in ASW analysis file
+asw_mat <- readRDS(aswpath)
+
+# load in DHS datasets
+
+hh <- haven::read_dta(hh_path) %>% 
+  # filter(any steps taken in the cleaning_CY.Rmd file)
+  mutate(wt = ifelse(hv012 == 0, hv013, hv012)*hv005/1e+06) %>% 
+  dplyr::filter(hv237 != 8,
+                hv253 != 8) %>% 
+  preprocess_dhsfactors_adj()
+
+if(nrow(dhs) != nrow(hh))
+  stop("Error: No. observations in original DHS dataset must match no. observations in the 
+        cleaned HH DHS file. Check cleandata_CY.R file for filtering steps and add them here.")
+
+ind_subset <- haven::read_dta(ind_path) %>% 
+  clean_individual_dhs()
+
+# Assign missing labels to multicat variables
+dhs <- reassign_label(dhs)
+
+# Create data dictionary of DHS labels
+dhs_labels <- create_label_df(dhs)
+```
+
+# Data Summary
+
+**Country Code-year:** `r cy`
+
+**Number of observations:** `r nrow(dhs)`
+
+**Number of variables used:** `r ncol(dhs) - 1`
+
+**Variable set used:** `r paste0(set)`
+
+**Variables used in the algorithm:** `r paste0(names(dhs)[-1], collapse = ", ")`
+
+#
+\pagebreak
+
+# Top `r num_results` Variable Sets (Sorted by ASW)
+
+```{r top variable}
+top_varset_table <- print_top_varsets(asw_mat = asw_mat, 
+                                      num_results = num_results, 
+                                      label_df = dhs_labels)[[1]]
+
+# Save DHS codes
+top_dhscode_table <- print_top_varsets(asw_mat = asw_mat, 
+                                       num_results = num_results, 
+                                       label_df = dhs_labels)[[2]]
+unq.dhscodes <- unique(as.vector(top_dhscode_table))
+```
+
+
+#
+\pagebreak
+
+# Marginal Distributions
+
+```{r marg dists}
+marg_dists <- print_margdists(data = dhs,
+                              code_mat = top_dhscode_table)
+```
+
+
+#
+\pagebreak
+
+# Cluster Configuration (Set #`r set`)
+
+```{r cluster dist}
+cluster_dist <- print_clus_dist(data = dhs, 
+                                set = set, 
+                                code_mat = top_dhscode_table, 
+                                label_df = dhs_labels, 
+                                nCores = nCores)
+
+# For printing
+cluster_dist_df <- cluster_dist[[1]]
+
+# For validation step
+cluster_dist_ids <- cluster_dist[[2]]
+```
+
+#
+\pagebreak
+
+# Validation Tables
+
+```{r val tables}
+# create merged HH and Individual dataset
+merged_dhs <- hh %>% 
+  select(hv001, hv002, wt, all_of(unq.dhscodes)) %>% 
+  mutate(id = cluster_dist_ids) %>% 
+  merge(ind_subset, 
+        by.x=c("hv001", "hv002"), 
+        by.y=c("v001", "v002"), all.y=FALSE)
+
+val_tables <- create_validation_tables(merged_data = merged_dhs)
+```
+
+
+\pagebreak
+
+## Ordered Logistic Using ordinal::clm
+
+This implements a Test of Trend and extracts the p-values for the validation variables. The p-values come from a one-sided hypothesis test that the coefficient of the rank in the model is positive, so that as the rank increases (become more asset heavy) the validation variable increases (assuming its values imply increasing wealth/SES).
+
+
+```{r}
+ord_log_data <- ord_log_fxn(data = dhs, i=1, tab=top_varset_table, 
+                                    nCores = nCores, merged_dhs=merged_dhs,
+                            levels = NULL)
+
+ord_log_analysis(ord_log_data)
+```
