@@ -1,0 +1,100 @@
+Country,logOR,seLogOR,Value
+Angola,0.094406291,0.014042752,mortality
+Benin,0.1466301,0.012286495,mortality
+Burkina Faso,0.07686274,0.10809295,mortality
+Burundi,0.06117362,0.1912466,mortality
+Cameroon,0.35601919,0.01798295,mortality
+Chad,NA,NA,mortality
+Comoros,0.245839,0.03895016,mortality
+Congo Democratic,-0.1805474,0.01398121,mortality
+Ethiopia,-0.2555845,0.02367873,mortality
+Gabon,-0.12567215,0.05172141,mortality
+Gambia,-0.1533646,0.03208747,mortality
+Ghana,0.05291483,0.02302122,mortality
+Guinea,-0.05712722,0.01795437,mortality
+Ivory Coast,0.06432765,0.01499305,mortality
+Kenya,0.1780293,0.02056297,mortality
+Lesotho,-0.06367095,0.03277173,mortality
+Liberia,-0.02056145,0.0207923,mortality
+Madagascar,0.2710099,0.01709257,mortality
+Malawi,0.1523056,0.02217092,mortality
+Mali,-0.05520692,0.02171192,mortality
+Mozambique,0.2446451,0.01409975,mortality
+Namibia,-0.08731126,0.02542912,mortality
+Niger,0.12305607,0.01773666,mortality
+Nigeria,0.12524824,0.009278578,mortality
+Rwanda,0.12362527,0.013688997,mortality
+Senegal,0.15167126,0.02132751,mortality
+Sierra Leone,-0.04269506,0.01709773,mortality
+South Africa,0.1597498,0.03996741,mortality
+Tanzania,-0.07325082,0.015389981,mortality
+Togo,-0.2506894,0.0235992,mortality
+Uganda,-0.01954015,0.01551391,mortality
+Zambia,0.26239389,0.5754676,mortality
+Zimbabwe,-0.2100525,0.02451718,mortality
+Angola,0.331260786,0.009635105,education
+Benin,0.3002884,0.009184456,education
+Burkina Faso,0.33010771,0.07365256,education
+Burundi,0.17165068,0.1758011,education
+Cameroon,0.85509295,0.01429368,education
+Chad,NA,NA,education
+Comoros,0.4715345,0.01956124,education
+Congo Democratic,-0.6455281,0.01177287,education
+Ethiopia,-0.4377096,0.01467369,education
+Gabon,-0.211675811,0.03701763,education
+Gambia,-0.3881603,0.02004879,education
+Ghana,0.17114086,0.0139438,education
+Guinea,-0.15132005,0.01469957,education
+Ivory Coast,0.09512392,0.01223372,education
+Kenya,0.5767928,0.01118835,education
+Lesotho,-0.47886541,0.02089692,education
+Liberia,-0.0808969,0.01658153,education
+Madagascar,0.7808407,0.01163162,education
+Malawi,0.4159097,0.013851,education
+Mali,0.43155542,0.02330393,education
+Mozambique,0.7804131,0.1200179,education
+Namibia,-0.25222131,0.01382193,education
+Niger,0.18234944,0.02168394,education
+Nigeria,0.30397311,0.007473228,education
+Rwanda,0.27650815,0.009342922,education
+Senegal,0.13096849,0.01372421,education
+Sierra Leone,-0.03365017,0.0133983,education
+South Africa,0.3599113,0.01989012,education
+Tanzania,-0.165144892,0.009126688,education
+Togo,-0.5524999,0.020662,education
+Uganda,-0.09943235,0.01208257,education
+Zambia,0.05719451,0.4194913,education
+Zimbabwe,-0.4097692,0.01649326,education
+Angola,0.001048071,0.036327128,healthcare
+Benin,0.2183434,0.030179715,healthcare
+Burkina Faso,0.11298078,0.41017912,healthcare
+Burundi,NA,NA,healthcare
+Cameroon,0.1318792,0.03747927,healthcare
+Chad,NA,NA,healthcare
+Comoros,0.1088188,0.15705835,healthcare
+Congo Democratic,-0.1799419,0.04938894,healthcare
+Ethiopia,-0.2441123,0.04097312,healthcare
+Gabon,0.006365458,0.08660215,healthcare
+Gambia,-0.3320743,0.07569178,healthcare
+Ghana,0.10106409,0.03306111,healthcare
+Guinea,-0.06575842,0.05624819,healthcare
+Ivory Coast,-0.03056535,0.04187029,healthcare
+Kenya,0.3664385,0.02194815,healthcare
+Lesotho,-0.26570775,0.03403232,healthcare
+Liberia,-0.18545815,0.03685044,healthcare
+Madagascar,0.4524114,0.02405792,healthcare
+Malawi,0.2210312,0.0242698,healthcare
+Mali,0.10538205,0.07151234,healthcare
+Mozambique,0.4412478,0.03834918,healthcare
+Namibia,-0.36978747,0.02761561,healthcare
+Niger,-0.06813596,0.05061094,healthcare
+Nigeria,0.05439905,0.026822446,healthcare
+Rwanda,0.05258987,0.020527313,healthcare
+Senegal,0.09216026,0.06057634,healthcare
+Sierra Leone,-0.10746213,0.0361716,healthcare
+South Africa,0.4481886,0.03904154,healthcare
+Tanzania,-0.008650025,0.040401921,healthcare
+Togo,-0.7595958,0.07044191,healthcare
+Uganda,-0.02156273,0.02630309,healthcare
+Zambia,1.52413939,0.9158786,healthcare
+Zimbabwe,-0.3150822,0.02346539,healthcare
