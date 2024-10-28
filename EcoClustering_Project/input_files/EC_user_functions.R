@@ -696,7 +696,7 @@ create_validation_tables2 <- function(merged_data){
   
   return(list_of_tables)
 }
-
+###### Functions
 #Convert any non-numeric variables
 map_cat_to_double <- function(df, level_list = list()) {
   df %>%
@@ -704,19 +704,30 @@ map_cat_to_double <- function(df, level_list = list()) {
                   ~ {
                     col_name <- cur_column()
                     if (col_name %in% names(level_list)) {
-                      # Use the user-specified levels if provided
-                      f <- factor(., levels = level_list[[col_name]])
+                      mapping <- level_list[[col_name]]
+                      
+                      if (is.numeric(mapping)) {
+                        # Mapping is a named numeric vector
+                        levels_mapping <- names(mapping)
+                        f <- factor(., levels = levels_mapping)
+                        numeric_codes <- mapping[as.character(f)]
+                      } else {
+                        # Mapping is a character vector of levels
+                        levels_mapping <- mapping
+                        f <- factor(., levels = levels_mapping)
+                        # Map levels to equally spaced values between 0 and 1
+                        numeric_codes <- seq(0, 1, length.out = length(levels_mapping))[as.numeric(f)]
+                      }
                     } else {
-                      # Use the default factor levels
+                      # Use default factor levels and map to values between 0 and 1
                       f <- factor(.)
+                      levels_mapping <- levels(f)
+                      numeric_codes <- seq(0, 1, length.out = length(levels_mapping))[as.numeric(f)]
                     }
-                    
-                    levels_mapping <- levels(f)
-                    numeric_codes <- as.numeric(f)
                     
                     # Print the mapping of factor levels to numeric codes
                     cat("Mapping for column:", col_name, "\n")
-                    print(setNames(seq_along(levels_mapping), levels_mapping))
+                    print(setNames(numeric_codes[!duplicated(numeric_codes)], levels_mapping))
                     cat("\n")
                     
                     as.double(numeric_codes)
@@ -753,15 +764,13 @@ ord_log_fxn <- function(data, i, tab, nCores, merged_dhs,levels = NULL){
       across(all_of(names), first, .names = "{col}")
     )
   grouped$node <- as.numeric(as.factor(as.character(grouped$node)))
-  grouped$prop <- prop.table(table(sub_data$clus))*100
   
   ##### Now, we count the average number of assets of each node in the cluster
-  grouped$assets <- apply(grouped %>% dplyr::select(-c(clus,node,prop)), MARGIN = 1, sum)
+  grouped$assets <- apply(grouped %>% ungroup(node) %>% dplyr::select(-c(clus,node)), MARGIN = 1, sum)
   grouped_meta <- grouped %>% group_by(node) %>% 
-    summarise(ave_asset = mean(assets),
-              min_asset = min(assets),
-              max_asset = max(assets),
-              tot_prop = sum(prop)/100
+    summarise(ave_asset = mean(assets,na.rm=TRUE),
+              min_asset = min(assets,na.rm=TRUE),
+              max_asset = max(assets,na.rm=TRUE)
     )
   
   ##### Create the rank variable, which gives the highest value to the most asset heavy
@@ -832,5 +841,3 @@ ord_log_analysis <- function(ord_log_data){
   
   print(res)
 }
-
-
