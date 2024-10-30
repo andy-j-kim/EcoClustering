@@ -734,77 +734,80 @@ map_cat_to_double <- function(df, level_list = list()) {
                   }))
 }
 
-ord_log_fxn <- function(data, i, tab, nCores, merged_dhs,levels = NULL){
-  
-  ##### Extract the variables from clustering i
-  ##### and get the cluster distribution in the data
-  #vars <- as.vector(as.matrix(tab[i,3:6])) 
-  vars <- dhs_labels$dhs_code[which(dhs_labels$dhs_label %in% as.vector(as.matrix(tab[i,] %>% dplyr::select(-c("Set","ASW")))))]
-  sub_data <- data %>% dplyr::select("wt", vars)
-  names <- colnames(sub_data)[-1]
-  out <- find_cluster_id(sub_data,num_var,num_cluster,nCores)
-  
-  ##### Modify sub data if any columns are characters
-  ##### Modify levels as needed
-  if(any(sapply(sub_data, is.character))){
-    sub_data <- map_cat_to_double(sub_data, levels)
-  }
-  
-  ##### Add the encodings of the clusters and node values
-  
-  sub_data$clus <- do.call(paste0, lapply(vars, function(var) unname(unlist(sub_data[, var]))))
-  sub_data$node <- out
-  
-  ##### Create summary data of each cluster node
-  grouped <- sub_data %>%
-    group_by(node) %>%
-    group_by(clus, .add = TRUE) %>%
-    summarise(
-      node = unique(node),
-      across(all_of(names), first, .names = "{col}")
-    )
-  grouped$node <- as.numeric(as.factor(as.character(grouped$node)))
-  
-  ##### Now, we count the average number of assets of each node in the cluster
-  grouped$assets <- apply(grouped %>% ungroup(node) %>% dplyr::select(-c(clus,node)), MARGIN = 1, sum)
-  grouped_meta <- grouped %>% group_by(node) %>% 
-    summarise(ave_asset = mean(assets,na.rm=TRUE),
-              min_asset = min(assets,na.rm=TRUE),
-              max_asset = max(assets,na.rm=TRUE)
-    )
-  
-  ##### Create the rank variable, which gives the highest value to the most asset heavy
-  ##### groups, and the lowest value to the least asset heavy
-  grouped_meta$rank <- rank(grouped_meta$ave_asset)
-  
-  ##### Check for inequalities in the rank to get the cluster scoring
-  ##### The score is defined as the proportion of the population that 
-  ##### You'd need to re-rank to break any ties in the asset-scoring
-  ##### So if two clusters have the same rank, we could break this tie
-  ##### By reordering them and moving the smallest proportion cluster
-  
-  score <- 0
-  if(length(unique(grouped_meta$rank)) != nrow(grouped_meta)){
-    for(r in unique(grouped_meta$rank)){
-      tmp <- grouped_meta %>% filter(rank == r)
-      if(nrow(tmp) > 1){
-        score <- score + sum(tmp$tot_prop) - max(tmp$tot_prop)
-      }
-    }
-  }
-  
-  print(paste0("Evaluation score: ",score))
-  ##### A final cleaned grouped dataset with summary data
-  group_final <- merge(grouped, grouped_meta, by = "node")
-  
-  ##### Use "merged_data" combining household and individual data
-  ##### Get clustering value to merge for ordinal logistic data
-  
-  merged_dhs$clus <- do.call(paste0, lapply(vars, function(var) unname(unlist(merged_dhs[, var]))))
-  
-  ord_log_data <- merge(merged_dhs,group_final[,c("clus","rank")],by="clus")
-  return(ord_log_data)
-}
+# Retired fxn 
+# ord_log_fxn <- function(data, i, tab, nCores, merged_dhs,levels = NULL){
+#   
+#   ##### Extract the variables from clustering i
+#   ##### and get the cluster distribution in the data
+#   #vars <- as.vector(as.matrix(tab[i,3:6])) 
+#   vars <- dhs_labels$dhs_code[which(dhs_labels$dhs_label %in% as.vector(as.matrix(tab[i,] %>% dplyr::select(-c("Set","ASW")))))]
+#   sub_data <- data %>% dplyr::select("wt", vars)
+#   names <- colnames(sub_data)[-1]
+#   out <- find_cluster_id(sub_data,num_var,num_cluster,nCores)
+#   
+#   ##### Modify sub data if any columns are characters
+#   ##### Modify levels as needed
+#   if(any(sapply(sub_data, is.character))){
+#     sub_data <- map_cat_to_double(sub_data, levels)
+#   }
+#   
+#   ##### Add the encodings of the clusters and node values
+#   
+#   sub_data$clus <- do.call(paste0, lapply(vars, function(var) unname(unlist(sub_data[, var]))))
+#   sub_data$node <- out
+#   
+#   ##### Create summary data of each cluster node
+#   grouped <- sub_data %>%
+#     group_by(node) %>%
+#     group_by(clus, .add = TRUE) %>%
+#     summarise(
+#       node = unique(node),
+#       across(all_of(names), first, .names = "{col}")
+#     )
+#   grouped$node <- as.numeric(as.factor(as.character(grouped$node)))
+#   
+#   ##### Now, we count the average number of assets of each node in the cluster
+#   grouped$assets <- apply(grouped %>% ungroup(node) %>% dplyr::select(-c(clus,node)), MARGIN = 1, sum)
+#   grouped_meta <- grouped %>% group_by(node) %>% 
+#     summarise(ave_asset = mean(assets,na.rm=TRUE),
+#               min_asset = min(assets,na.rm=TRUE),
+#               max_asset = max(assets,na.rm=TRUE)
+#     )
+#   
+#   ##### Create the rank variable, which gives the highest value to the most asset heavy
+#   ##### groups, and the lowest value to the least asset heavy
+#   grouped_meta$rank <- rank(grouped_meta$ave_asset)
+#   
+#   ##### Check for inequalities in the rank to get the cluster scoring
+#   ##### The score is defined as the proportion of the population that 
+#   ##### You'd need to re-rank to break any ties in the asset-scoring
+#   ##### So if two clusters have the same rank, we could break this tie
+#   ##### By reordering them and moving the smallest proportion cluster
+#   
+#   score <- 0
+#   if(length(unique(grouped_meta$rank)) != nrow(grouped_meta)){
+#     for(r in unique(grouped_meta$rank)){
+#       tmp <- grouped_meta %>% filter(rank == r)
+#       if(nrow(tmp) > 1){
+#         score <- score + sum(tmp$tot_prop) - max(tmp$tot_prop)
+#       }
+#     }
+#   }
+#   
+#   print(paste0("Evaluation score: ",score))
+#   ##### A final cleaned grouped dataset with summary data
+#   group_final <- merge(grouped, grouped_meta, by = "node")
+#   
+#   ##### Use "merged_data" combining household and individual data
+#   ##### Get clustering value to merge for ordinal logistic data
+#   
+#   merged_dhs$clus <- do.call(paste0, lapply(vars, function(var) unname(unlist(merged_dhs[, var]))))
+#   
+#   ord_log_data <- merge(merged_dhs,group_final[,c("clus","rank")],by="clus")
+#   return(ord_log_data)
+# }
+
+
 
 ord_log_analysis <- function(ord_log_data){
   library(ordinal)
@@ -840,4 +843,108 @@ ord_log_analysis <- function(ord_log_data){
   res$var <- c("Mortality","Education","Health")
   
   print(res)
+}
+
+
+recode_variables <- function(df, values) {
+  for (var in names(values)) {
+    df <- df %>%
+      mutate(!!sym(var) := recode(!!sym(var), !!!values[[var]]))
+  }
+  return(df)
+}
+
+# Working OLR cleaning code (10/29/24)
+ord_log_fxn2 <- function(data, i, tab, nCores, merged_dhs, cluster_dist_ids, levels = NULL){
+  
+  ##### Extract the variables from clustering i
+  ##### and get the cluster distribution in the data
+  #vars <- as.vector(as.matrix(tab[i,3:6])) 
+  vars <- dhs_labels$dhs_code[which(dhs_labels$dhs_label %in% as.vector(as.matrix(tab[i,] %>% dplyr::select(-c("Set","ASW")))))]
+  sub_data <- data %>% dplyr::select("wt", vars) %>% 
+    recode_variables(values = levels)
+  names <- colnames(sub_data)[-1]
+  #out <- find_cluster_id(sub_data,num_var,num_cluster,nCores)
+  
+  ##### Modify sub data if any columns are characters
+  ##### Modify levels as needed
+  # if(any(sapply(sub_data, is.character))){
+  #   sub_data <- map_cat_to_double(sub_data, levels)
+  # }
+  
+  #sub_data <- recode_variables(df = sub_data, values = levels)
+  
+  ##### Add the encodings of the clusters and node values
+  
+  sub_data$clus <- do.call(paste0, lapply(vars, function(var) unname(unlist(sub_data[, var]))))
+  sub_data$node <- cluster_dist_ids
+  
+  sub_data <- sub_data %>% na.omit()
+  
+  ##### Create summary data of each cluster node
+  grouped <- sub_data %>%
+    group_by(node) %>%
+    group_by(clus, .add = TRUE) %>%
+    summarise(
+      node = unique(node),
+      across(all_of(names), first, .names = "{col}")
+    ) %>% 
+    ungroup() %>% 
+    mutate(node = as.numeric(as.factor(as.character(node))))
+  
+  prop_df <- (prop.table(table(sub_data$clus))*100) %>% 
+    as.data.frame() %>% 
+    rename(clus = Var1, prop = Freq)
+  
+  grouped <- left_join(grouped, prop_df)
+  
+  ##### Now, we count the average number of assets of each node in the cluster
+  grouped$assets <- apply(grouped %>% 
+                            dplyr::select(-c(clus, node, prop)), MARGIN = 1, sum)
+  
+  grouped <- grouped %>% 
+    group_by(node) %>%
+    mutate(rel_prop = prop / sum(prop)) %>%
+    ungroup() %>% 
+    mutate(rel_assets = assets*rel_prop)
+  
+  grouped_meta <- grouped %>% group_by(node) %>% 
+    summarise(ave_asset = sum(rel_assets,na.rm=TRUE),
+              min_asset = min(assets,na.rm=TRUE),
+              max_asset = max(assets,na.rm=TRUE),
+              tot_prop = sum(prop)/100
+    )
+  
+  ##### Create the rank variable, which gives the highest value to the most asset heavy
+  ##### groups, and the lowest value to the least asset heavy
+  grouped_meta$rank <- rank(grouped_meta$ave_asset)
+  
+  ##### Check for inequalities in the rank to get the cluster scoring
+  ##### The score is defined as the proportion of the population that 
+  ##### You'd need to re-rank to break any ties in the asset-scoring
+  ##### So if two clusters have the same rank, we could break this tie
+  ##### By reordering them and moving the smallest proportion cluster
+  
+  # score <- 0
+  # if(length(unique(grouped_meta$rank)) != nrow(grouped_meta)){
+  #   for(r in unique(grouped_meta$rank)){
+  #     tmp <- grouped_meta %>% filter(rank == r)
+  #     if(nrow(tmp) > 1){
+  #       score <- score + sum(tmp$tot_prop) - max(tmp$tot_prop)
+  #     }
+  #   }
+  # }
+  # 
+  # print(paste0("Evaluation score: ",score))
+  ##### A final cleaned grouped dataset with summary data
+  group_final <- merge(grouped, grouped_meta, by = "node")
+  
+  ##### Use "merged_data" combining household and individual data
+  ##### Get clustering value to merge for ordinal logistic data
+  merged_dhs_olr <- merged_dhs %>% 
+    recode_variables(values = levels) %>% 
+    mutate(clus = do.call(paste0, lapply(vars, function(var) unname(unlist(.[, var])))))
+  
+  ord_log_data <- merge(merged_dhs_olr,group_final[,c("clus","rank")],by="clus")
+  return(ord_log_data)
 }
