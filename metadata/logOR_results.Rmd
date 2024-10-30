@@ -1,8 +1,6 @@
 ---
 title: "Economic Clustering LogOR Plot Report"
-output: 
-  word_document:
-    reference_docx: "summaryscript_style.docx"
+
 
 always_allow_html: true
 ---
@@ -14,7 +12,8 @@ knitr::opts_chunk$set(echo=F, message=F, warning=F)
 ```{r}
 library(meta)
 library(dplyr)
-logORdata <- read.csv("./metadata/logORdata.csv")
+#logORdata <- read.csv("./metadata/logORdata.csv")
+logORdata <- read.csv("./logORdata.csv")
 ```
 
 ```{r}
