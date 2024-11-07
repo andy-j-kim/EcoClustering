@@ -41,12 +41,12 @@ GREY <- "grey50"
 FONT <- "Times New Roman"
 
 plt <- ggplot(dat) +
-  geom_col(aes(count, y = reorder(name,count)), fill = GREY, width = 0.6) 
+  geom_col(aes(count, y = reorder(name,count)), fill = BLACK, width = 0.6) 
 
 plt <- plt + 
   scale_x_continuous(
-    limits = c(0, 27),
-    breaks = seq(0, 60, by = 3), 
+    limits = c(0, 26),
+    breaks = seq(0, 26, by = 2), 
     expand = c(0, 0), # The horizontal axis does not extend to either side
     position = "top"  # Labels are located on the top
   ) +
@@ -57,13 +57,13 @@ plt <- plt +
     # Set background color to white
     panel.background = element_rect(fill = "white"),
     # Set the color and the width of the grid lines for the horizontal axis
-    panel.grid.major.x = element_line(color = "#A8BAC4", linewidth = 0.3),
+    panel.grid.major.x = element_line(color = BLACK, linewidth = 0.3),
     # Remove tick marks by setting their length to 0
     axis.ticks.length = unit(0, "mm"),
     # Remove the title for both axes
     axis.title = element_blank(),
     # Only left line of the vertical axis is painted in black
-    axis.line.y.left = element_line(color = "grey50"),
+    axis.line.y.left = element_line(color = BLACK),
     # Remove labels from the vertical axis
     axis.text.y = element_blank(),
     # But customize labels for the horizontal axis
@@ -76,7 +76,7 @@ plt <- plt +
     aes(count, y = name, label = name),
     hjust = 0,
     nudge_x = 0.3,
-    colour = GREY,
+    colour = BLACK,
     bg.colour = "white",
     bg.r = 0.2,
     family = FONT,
