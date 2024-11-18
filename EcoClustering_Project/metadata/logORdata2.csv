@@ -1,0 +1,100 @@
+Country,logOR,seLogOR,Value,Cluster Grouping #
+Angola,0.2279327,0.01889041,Mortality,1
+Angola,1.0310556,0.01534734,Education,1
+Angola,0.119015,0.0552142,Health,1
+Benin,0.2507802,0.01641759,Mortality,1
+Benin,0.5561738,0.01431422,Education,1
+Benin,0.4558048,0.04917112,Health,1
+Burkina Faso,0.3423726,0.02122036,Mortality,1
+Burkina Faso,0.7354243,0.01706354,Education,1
+Burkina Faso,1.0994505,0.12115807,Health,1
+Burundi,0.4440149,0.02298312,Mortality,1
+Burundi,0.9330572,0.01605963,Education,1
+Burundi,0.5880626,0.05295207,Health,1
+Cameroon,0.3560192,0.01798295,Mortality,1
+Cameroon,0.855093,0.01429368,Education,1
+Cameroon,0.1318792,0.03747927,Health,1
+Chad,-0.09709641,0.01393307,Mortality,1
+Chad,-0.29375029,0.01332638,Education,1
+Chad,-0.47410413,0.09835831,Health,1
+Comoros,0.26201784,0.03758024,Mortality,1
+Comoros,0.51998658,0.02058714,Education,1
+Comoros,0.09225529,0.1723813,Health,1
+Congo Democratic,0.1803918,0.01220981,Mortality,1
+Congo Democratic,0.748469,0.01081099,Education,1
+Congo Democratic,0.1778471,0.04357055,Health,1
+Ethiopia,0.4024461,0.02836253,Mortality,1
+Ethiopia,0.7490283,0.01695952,Education,1
+Ethiopia,0.4071687,0.04463371,Health,1
+Gabon,0.16691844,0.033811,Mortality,1
+Gabon,0.52958006,0.02442754,Education,1
+Gabon,-0.01085879,0.05049479,Health,1
+Gambia,0.2607224,0.02316678,Mortality,1
+Gambia,0.597474,0.01797816,Education,1
+Gambia,0.5768197,0.0800391,Health,1
+Ghana,0.3206299,0.03014793,Mortality,1
+Ghana,0.8280405,0.01719082,Education,1
+Ghana,0.288969,0.03585944,Health,1
+Guinea,0.326348,0.0206606,Mortality,1
+Guinea,0.7633968,0.01762222,Education,1
+Guinea,0.3189843,0.05512195,Health,1
+Ivory Coast,0.26201784,0.03758024,Mortality,1
+Ivory Coast,0.51998658,0.02058714,Education,1
+Ivory Coast,0.09225529,0.1723813,Health,1
+Kenya,0.1928677,0.01741451,Mortality,1
+Kenya,0.9361685,0.01109208,Education,1
+Kenya,0.4783944,0.02561046,Health,1
+Lesotho,0.09955356,0.0355924,Mortality,1
+Lesotho,0.63593284,0.02269465,Education,1
+Lesotho,0.34402134,0.03655649,Health,1
+Liberia,0.2667686,0.02675159,Mortality,1
+Liberia,0.6604592,0.02104431,Education,1
+Liberia,0.3709845,0.04301827,Health,1
+Madagascar,0.2710099,0.01709257,Mortality,1
+Madagascar,0.7808407,0.01163162,Education,1
+Madagascar,0.4524114,0.02405792,Health,1
+Malawi,0.2011427,0.011961478,Mortality,1
+Malawi,0.6980081,0.009266162,Education,1
+Malawi,0.3213813,0.015872626,Health,1
+Mali,0.1452685,0.02288479,Mortality,1
+Mali,0.8424594,0.02540492,Education,1
+Mali,0.2391416,0.06749329,Health,1
+Mozambique,0.2446451,0.01409975,Mortality,1
+Mozambique,0.7804131,0.01200179,Education,1
+Mozambique,0.4412478,0.03834918,Health,1
+Namibia,0.3105773,0.02803854,Mortality,1
+Namibia,0.6746538,0.01547323,Education,1
+Namibia,0.5514068,0.03121289,Health,1
+Niger,0.2572712,0.01401912,Mortality,1
+Niger,0.657767,0.01451813,Education,1
+Niger,-0.1081704,0.03830532,Health,1
+Nigeria,0.3553599,0.00959977,Mortality,1
+Nigeria,0.8260681,0.007715723,Education,1
+Nigeria,0.15552,0.024738158,Health,1
+Rwanda,0.3329824,0.0249753,Mortality,1
+Rwanda,0.7179311,0.01343447,Education,1
+Rwanda,0.2661102,0.02723245,Health,1
+Senegal,0.3872704,0.02746022,Mortality,1
+Senegal,0.5782024,0.01876302,Education,1
+Senegal,0.5726263,0.08680106,Health,1
+Sierra Leone,0.3425159,0.01914443,Mortality,1
+Sierra Leone,0.6532585,0.0137615,Education,1
+Sierra Leone,0.3774835,0.03270029,Health,1
+South Africa,0.250741,0.03792964,Mortality,1
+South Africa,0.6457226,0.0213989,Education,1
+South Africa,0.6589259,0.04849016,Health,1
+Tanzania,0.2081322,0.02502562,Mortality,1
+Tanzania,0.6701138,0.01503438,Education,1
+Tanzania,0.2012433,0.06284018,Health,1
+Togo,0.3756326,0.01891847,Mortality,1
+Togo,0.5930981,0.01356288,Education,1
+Togo,0.6230355,0.03843341,Health,1
+Uganda,0.2926729,0.01731692,Mortality,1
+Uganda,0.7399274,0.01275013,Education,1
+Uganda,0.3734722,0.02538532,Health,1
+Zambia,0.2270705,0.0159354,Mortality,1
+Zambia,0.7702874,0.01208299,Education,1
+Zambia,0.3660668,0.03277207,Health,1
+Zimbabwe,0.3441092,0.02876176,Mortality,1
+Zimbabwe,0.8832509,0.02159635,Education,1
+Zimbabwe,0.615988,0.02959983,Health,1
