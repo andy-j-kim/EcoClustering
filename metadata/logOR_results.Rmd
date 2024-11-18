@@ -1,0 +1,76 @@
+---
+title: "Economic Clustering LogOR Plot Report"
+
+
+always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=F, message=F, warning=F)
+```
+
+```{r}
+library(meta)
+library(dplyr)
+#logORdata <- read.csv("./metadata/logORdata.csv")
+logORdata <- read.csv("./logORdata2.csv")
+```
+
+```{r}
+### Remove any missing values
+logORdata <- na.omit(logORdata)
+```
+
+### Mortality
+
+```{r}
+mortdata <- logORdata %>% 
+  dplyr::filter(Value == "Mortality") %>% 
+  dplyr::select(-Value) %>% 
+  dplyr::arrange(-logOR)
+mort <- metagen(logOR,seLogOR,sm = "OR",
+                data=mortdata,
+                studlab=Country)
+
+forest(mort, common = F, random = F, 
+       leftcols = c("studlab"),  
+       leftlabs = c("Country"), 
+       overall=F, overall.hetstat = F, 
+       colgap.right = "4mm", colgap.forest.right = "4mm")
+```
+
+### Education
+
+```{r}
+educdata <- logORdata %>% 
+  dplyr::filter(Value == "Education") %>% 
+  dplyr::select(-Value)  %>% 
+  dplyr::arrange(-logOR)
+educ <- metagen(logOR,seLogOR,sm = "OR",
+                data=educdata,
+                studlab=Country)
+forest(educ, common = F, random = F, 
+       leftcols = c("studlab"),  
+       leftlabs = c("Country"), 
+       overall=F, overall.hetstat = F, 
+       colgap.right = "4mm", colgap.forest.right = "4mm")
+```
+
+### Healthcare
+
+```{r}
+healdata <- logORdata %>% 
+  dplyr::filter(Value == "Health") %>% 
+  dplyr::select(-Value) %>% 
+  dplyr::arrange(-logOR)
+heal <- metagen(logOR,seLogOR,sm = "OR",
+                data=healdata,
+                studlab=Country)
+forest(heal, common = F, random = F, 
+       leftcols = c("studlab"),  
+       leftlabs = c("Country"), 
+       overall=F, overall.hetstat = F, 
+       colgap.right = "4mm", colgap.forest.right = "4mm")
+```
+
+
