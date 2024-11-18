@@ -40,8 +40,8 @@ dhspath <- paste0("./data/cleaned/", cy, "_clean.rds")
 aswpath <- paste0("./data/asw/ASW_", cy, "_", num_var, "cluster.rds")
 
 # Paths to raw DHS files here
-hh_path <- "~/Box/Project 1/DHS Data/NAMIBIA_2013/NMHR61DT/NMHR61FL.DTA"
-ind_path <- "~/Box/Project 1/DHS Data/NAMIBIA_2013/NMIR61DT/NMIR61FL.DTA"
+hh_path <- "~/Library/CloudStorage/Box-Box/Project 1/DHS Data/NAMIBIA_2013/NMHR61DT/NMHR61FL.DTA"
+ind_path <- "~/Library/CloudStorage/Box-Box/Project 1/DHS Data/NAMIBIA_2013/NMIR61DT/NMIR61FL.DTA"
 ```
 
 ```{r read data}
@@ -54,7 +54,7 @@ asw_mat <- readRDS(aswpath)
 # load in DHS datasets
 hh <- haven::read_dta(hh_path) %>% 
   # filter(any steps taken in the cleaning_CY.Rmd file)
-  preprocess_dhsfactors_adj() %>% 
+  preprocess_dhsfactors() %>% 
   dplyr::filter(hv237 != 8, hv253 != 8) %>% 
   mutate(wt = ifelse(hv012 == 0, hv013, hv012)*hv005/1e+06)
 
@@ -161,9 +161,10 @@ val_tables <- create_validation_tables(merged_data = merged_dhs)
 This implements a Test of Trend and extracts the p-values for the validation variables. The p-values come from a one-sided hypothesis test that the coefficient of the rank in the model is positive, so that as the rank increases (become more asset heavy) the validation variable increases (assuming its values imply increasing wealth/SES).
 
 ```{r}
-ord_log_data <- ord_log_fxn(data = dhs, i=1, tab=top_varset_table, 
-                                    nCores = nCores, merged_dhs=merged_dhs,
-                            levels = NULL)
+ord_log_data <- ord_log_fxn2(data = dhs, i=1, tab=top_varset_table, 
+                             nCores = nCores, merged_dhs=merged_dhs,
+                             cluster_dist_ids = cluster_dist_ids,
+                             levels = NULL)
 
 ord_log_analysis(ord_log_data)
 ```
