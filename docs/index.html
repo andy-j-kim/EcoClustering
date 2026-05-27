@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>EconomicClusters — Rapid Wealth Estimation for SSA</title>
+<title>EconomicClusters: Rapid Wealth Estimation for SSA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -498,7 +498,7 @@ d3.json(TOPO_URL).then(world => {
         renderCountry(bundle);
         showView('country');
       } else {
-        alert(`${meta.name} (${meta.cc}) — per-country JSON not yet present at data/${meta.cc}.json. Run the R export script for this country to populate it.\n\nMetadata: n=${meta.n.toLocaleString()} households, ${meta.nvars} candidate variables, top ASW=${meta.asw.toFixed(4)}.`);
+        alert(`${meta.name} (${meta.cc}): per-country JSON not yet present at data/${meta.cc}.json. Run the R export script for this country to populate it.\n\nMetadata: n=${meta.n.toLocaleString()} households, ${meta.nvars} candidate variables, top ASW=${meta.asw.toFixed(4)}.`);
       }
     });
 
@@ -526,7 +526,7 @@ function renderCountry(c) {
 
   const modeBadge = document.getElementById('country-mode-badge');
   modeBadge.innerHTML = c.mode === 'clustering_only'
-    ? '<span class="pill warn" title="Validation tables not available — raw DHS files missing">Clustering only</span>'
+    ? '<span class="pill warn" title="Validation tables not available; raw DHS files missing">Clustering only</span>'
     : '';
 
   const tbody = document.getElementById('topsets-body');
