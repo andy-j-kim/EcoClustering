@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EconomicClusters — Rapid Wealth Estimation for SSA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://unpkg.com/topojson-client@3"></script>
+<style>
+  :root {
+    --bg: #f7f5f0; --surface: #ffffff; --surface-2: #faf8f3;
+    --ink: #1a2e2c; --ink-soft: #4a5e5c; --ink-muted: #7a8a88;
+    --rule: #e6e0d4; --rule-strong: #cfc7b8;
+    --primary: #8db7ad; --primary-deep: #084a40; --primary-soft: #d4ebe6;
+    --accent: #c7572f; --accent-soft: #f4dccf;
+    --warn: #b8860b;
+    --available: #b8d4cd; --available-hover: #8db7ad;
+    --live: #0e6b5e; --inactive: #e6e0d4;
+    --max-w: 1200px; --radius: 12px;
+    --shadow-sm: 0 1px 2px rgba(15,40,38,.05), 0 1px 3px rgba(15,40,38,.04);
+    --shadow-md: 0 4px 8px rgba(15,40,38,.06), 0 8px 24px rgba(15,40,38,.06);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3, h4 { font-family: 'Fraunces', Georgia, serif; font-weight: 600;
+    line-height: 1.15; letter-spacing: -0.01em; margin: 0; color: var(--ink); }
+  h1 { font-size: clamp(2.2rem, 4.5vw, 3.6rem); font-weight: 500; }
+  h2 { font-size: clamp(1.6rem, 2.6vw, 2.2rem); }
+  h3 { font-size: 1.25rem; font-weight: 600; }
+  h4 { font-size: 1rem; font-weight: 600; font-family: 'Inter', sans-serif; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); }
+  p { margin: 0 0 1em; color: var(--ink-soft); }
+  a { color: var(--primary); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, .mono { font-family: 'SF Mono', 'JetBrains Mono', Menlo, monospace; font-size: 0.9em; background: var(--surface-2); padding: 0.1em 0.4em; border-radius: 4px; color: var(--primary-deep); }
+
+  .nav { position: sticky; top: 0; z-index: 50; background: rgba(247,245,240,0.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--rule); }
+  .nav-inner { max-width: var(--max-w); margin: 0 auto; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: 'Fraunces', serif; font-weight: 600; font-size: 1.15rem; color: var(--ink); cursor: pointer; }
+  .brand-mark { width: 28px; height: 28px; border-radius: 6px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-deep) 100%); display: grid; place-items: center; color: white; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 13px; }
+  .brand:hover { text-decoration: none; }
+  .nav-links { display: flex; gap: 28px; align-items: center; font-size: 0.92rem; }
+  .nav-links a { color: var(--ink-soft); }
+  .nav-links a:hover { color: var(--primary); text-decoration: none; }
+  .pill { display: inline-block; padding: 4px 10px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-deep); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+  .pill.warn { background: #fbe9c8; color: #7a5a0b; }
+
+  .container { max-width: var(--max-w); margin: 0 auto; padding: 0 24px; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .hero { padding: 80px 0 40px; }
+  .hero-eyebrow { display: inline-flex; align-items: center; gap: 8px; color: var(--primary-deep); font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 24px; }
+  .hero-eyebrow::before { content: ''; width: 24px; height: 1px; background: var(--primary-deep); }
+  .hero h1 { margin-bottom: 24px; max-width: 22ch; }
+  .hero-lede { font-size: 1.2rem; line-height: 1.6; color: var(--ink-soft); max-width: 64ch; margin-bottom: 32px; }
+  .hero-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 24px; max-width: 720px; padding: 24px 0; border-top: 1px solid var(--rule); margin-top: 8px; }
+  .stat-num { font-family: 'Fraunces', serif; font-size: 2.2rem; font-weight: 500; color: var(--ink); line-height: 1; }
+  .stat-label { font-size: 0.85rem; color: var(--ink-muted); margin-top: 6px; }
+
+  .why { padding: 64px 0; background: var(--surface); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+  .why-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 80px; align-items: start; }
+  @media (max-width: 800px) { .why-grid { grid-template-columns: 1fr; gap: 40px; } }
+  .why-card { background: var(--surface-2); padding: 24px; border-radius: var(--radius); border: 1px solid var(--rule); }
+  .why-card h4 { margin-bottom: 8px; color: var(--primary-deep); }
+  .why-card p { margin: 0; font-size: 0.95rem; }
+  .why-cards { display: grid; gap: 16px; }
+
+  .map-section { padding: 80px 0 100px; }
+  .map-header { display: flex; justify-content: space-between; align-items: end; margin-bottom: 32px; gap: 24px; flex-wrap: wrap; }
+  .map-header h2 { margin-bottom: 8px; max-width: 24ch; }
+  .map-header p { margin: 0; max-width: 48ch; }
+  .map-wrapper { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--rule); padding: 24px; position: relative; box-shadow: var(--shadow-sm); }
+  .map-controls { display: flex; gap: 16px; align-items: center; margin-bottom: 16px; font-size: 0.85rem; color: var(--ink-muted); flex-wrap: wrap; }
+  .legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+  .legend-study { background: var(--primary); }
+  .legend-inactive { background: var(--inactive); border: 1px solid var(--rule-strong); }
+  #map-svg { width: 100%; height: auto; max-height: 620px; cursor: default; }
+  .country { stroke: white; stroke-width: 0.8; cursor: default; transition: fill 0.15s ease; }
+  .country.study { fill: var(--primary); cursor: pointer; }
+  .country.study:hover { fill: var(--primary-deep); }
+  .country.inactive { fill: var(--inactive); }
+  .country-label { pointer-events: none; font-family: 'Inter', sans-serif; font-size: 9px; fill: var(--ink); text-anchor: middle; opacity: 0.7; }
+  .map-tooltip { position: absolute; pointer-events: none; background: var(--ink); color: white; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; line-height: 1.4; box-shadow: var(--shadow-md); opacity: 0; transition: opacity 0.1s ease; z-index: 100; max-width: 240px; }
+  .map-tooltip.show { opacity: 1; }
+  .map-tooltip .tt-name { font-weight: 600; color: white; }
+  .map-tooltip .tt-meta { color: rgba(255,255,255,0.7); font-size: 0.78rem; margin-top: 2px; }
+  .map-tooltip .tt-live { color: #7fd8c5; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; font-weight: 600; }
+
+  .country-header { padding: 56px 0 32px; border-bottom: 1px solid var(--rule); }
+  .breadcrumb { font-size: 0.85rem; color: var(--ink-muted); margin-bottom: 16px; }
+  .breadcrumb a { color: var(--ink-muted); }
+  .breadcrumb a:hover { color: var(--primary); text-decoration: none; }
+  .breadcrumb::before { content: '← '; }
+  .country-title-row { display: flex; align-items: end; gap: 24px; flex-wrap: wrap; justify-content: space-between; }
+  .country-title-row h1 { margin: 0; }
+  .country-meta { display: flex; gap: 24px; font-size: 0.9rem; color: var(--ink-muted); margin-top: 12px; flex-wrap: wrap; }
+  .country-meta strong { color: var(--ink); font-weight: 600; }
+  .country-body { display: grid; grid-template-columns: 1.4fr 1fr; gap: 48px; padding: 48px 0; }
+  @media (max-width: 900px) { .country-body { grid-template-columns: 1fr; gap: 32px; } }
+  .section-block { margin-bottom: 40px; }
+  .section-block h3 { margin-bottom: 12px; }
+  .section-block .section-sub { font-size: 0.9rem; color: var(--ink-muted); margin-bottom: 16px; }
+
+  .table-wrap { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--rule); overflow: hidden; }
+  table.data { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  table.data thead th { background: var(--surface-2); text-align: left; padding: 12px 14px; font-weight: 600; color: var(--ink); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--rule); }
+  table.data tbody td { padding: 11px 14px; border-bottom: 1px solid var(--rule); color: var(--ink-soft); }
+  table.data tbody tr:last-child td { border-bottom: none; }
+  table.data tbody tr.set-row { cursor: pointer; transition: background 0.1s ease; }
+  table.data tbody tr.set-row:hover { background: var(--primary-soft); }
+  table.data tbody tr.set-row.selected { background: var(--primary-soft); }
+  table.data tbody tr.set-row .set-num { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--surface-2); color: var(--ink); font-weight: 600; font-size: 0.78rem; }
+  table.data tbody tr.set-row.selected .set-num, table.data tbody tr.set-row:hover .set-num { background: var(--primary); color: white; }
+  .asw-bar { display: inline-flex; align-items: center; gap: 8px; }
+  .asw-bar-track { width: 60px; height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+  .asw-bar-fill { height: 100%; background: var(--primary); border-radius: 3px; }
+  .asw-val { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 500; }
+
+  .var-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+  .var-chip { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; font-size: 0.88rem; display: flex; justify-content: space-between; align-items: start; gap: 8px; }
+  .var-chip .code { color: var(--ink-muted); font-family: 'SF Mono', monospace; font-size: 0.74rem; }
+  .var-chip .desc { color: var(--ink); font-weight: 500; line-height: 1.3; }
+  .var-chip .dist { color: var(--ink-muted); font-size: 0.74rem; margin-top: 3px; line-height: 1.3; }
+  .var-chip .pct { color: var(--primary); font-weight: 600; font-size: 0.82rem; font-variant-numeric: tabular-nums; white-space: nowrap; background: var(--primary-soft); padding: 2px 8px; border-radius: 999px; }
+  .var-chip .pct.none { background: transparent; color: var(--ink-muted); padding: 0; }
+
+  .compute-box { background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 100%); border: 1px solid var(--rule); border-radius: var(--radius); padding: 24px; margin-top: 32px; }
+  .compute-box h4 { font-family: 'Fraunces', serif; font-size: 1.1rem; text-transform: none; letter-spacing: 0; color: var(--ink); margin-bottom: 8px; font-weight: 600; }
+  .compute-box p { font-size: 0.92rem; }
+  .button { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; background: var(--primary); color: white; border: none; border-radius: 8px; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.92rem; cursor: pointer; transition: background 0.15s ease; }
+  .button:hover { background: var(--primary-deep); }
+  .button.secondary { background: var(--surface); color: var(--primary-deep); border: 1px solid var(--rule-strong); }
+  .button.secondary:hover { background: var(--surface-2); }
+
+  .report-header { padding: 56px 0 24px; border-bottom: 1px solid var(--rule); }
+  .report-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 20px; padding: 28px 0; border-bottom: 1px solid var(--rule); margin-bottom: 40px; }
+  .summary-stat .stat-num { font-size: 1.6rem; }
+  .summary-stat .stat-label { font-size: 0.8rem; }
+  .summary-stat .stat-detail { font-size: 0.78rem; color: var(--ink-muted); margin-top: 2px; }
+  .selected-vars { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+  .selected-var { background: var(--primary-soft); color: var(--primary-deep); padding: 6px 12px; border-radius: 999px; font-size: 0.88rem; font-weight: 500; }
+  .selected-var .ord { display: inline-block; width: 18px; height: 18px; border-radius: 50%; background: var(--primary); color: white; text-align: center; line-height: 18px; font-size: 0.7rem; margin-right: 8px; }
+
+  .pattern-cell { display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+  .pattern-bit { width: 22px; height: 22px; border-radius: 4px; display: grid; place-items: center; font-size: 0.72rem; font-weight: 700; font-family: 'SF Mono', monospace; flex-shrink: 0; }
+  .pattern-bit.on { background: var(--primary); color: white; }
+  .pattern-bit.off { background: var(--surface-2); color: var(--ink-muted); border: 1px solid var(--rule); }
+  .pattern-cat { display: inline-grid; place-items: center; height: 22px; padding: 0 9px; border-radius: 11px; font-size: 0.74rem; font-weight: 600; font-family: 'Inter', sans-serif; background: var(--accent-soft); color: #7a3413; border: 1px solid #e8c1a3; white-space: nowrap; }
+  .pattern-cat[data-level="finished"], .pattern-cat[data-level="flush"], .pattern-cat[data-level="pipe_dwel"], .pattern-cat[data-level="pipe_yard"] { background: var(--primary-soft); color: var(--primary-deep); border-color: #a5d3c9; }
+
+  .rank-badge { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-weight: 700; font-size: 0.85rem; color: white; font-family: 'Fraunces', serif; }
+  .rank-1 { background: #b8860b; } .rank-2 { background: #b8732a; } .rank-3 { background: #846a3a; } .rank-4 { background: #4f7d5e; } .rank-5 { background: var(--primary); }
+
+  .val-grid { display: grid; grid-template-columns: 1fr; gap: 32px; }
+  .val-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--rule); overflow: hidden; }
+  .val-card-header { padding: 20px 24px; border-bottom: 1px solid var(--rule); display: flex; justify-content: space-between; align-items: start; gap: 24px; flex-wrap: wrap; }
+  .val-card-header h3 { margin: 0; font-size: 1.1rem; }
+  .val-card-header .sub { font-size: 0.85rem; color: var(--ink-muted); margin-top: 4px; }
+  .val-stats { display: flex; gap: 24px; font-size: 0.85rem; flex-wrap: wrap; }
+  .val-stat .num { font-family: 'Fraunces', serif; font-weight: 500; font-size: 1.2rem; color: var(--primary-deep); font-variant-numeric: tabular-nums; }
+  .val-stat .lbl { color: var(--ink-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .val-card table.data { font-size: 0.88rem; }
+  .val-card .footnote { padding: 12px 24px; font-size: 0.8rem; color: var(--ink-muted); background: var(--surface-2); border-top: 1px solid var(--rule); }
+  .val-pending { padding: 24px; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--rule); color: var(--ink-soft); }
+  .val-pending h4 { font-family: 'Fraunces', serif; font-size: 1.05rem; text-transform: none; letter-spacing: 0; color: var(--ink); margin-bottom: 8px; font-weight: 600; }
+
+  .modal-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(15,40,38,0.4); display: none; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--surface); border-radius: var(--radius); padding: 32px; max-width: 520px; width: 100%; box-shadow: var(--shadow-md); }
+  .modal h3 { margin-bottom: 12px; }
+  .modal p { font-size: 0.95rem; }
+  .modal .modal-actions { display: flex; gap: 12px; margin-top: 24px; }
+
+  .footer { border-top: 1px solid var(--rule); padding: 32px 0; font-size: 0.85rem; color: var(--ink-muted); margin-top: 80px; }
+  .footer-inner { max-width: var(--max-w); margin: 0 auto; padding: 0 24px; display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="brand" onclick="showView('landing')">
+      <div class="brand-mark">EC</div>
+      EconomicClusters
+    </div>
+    <div class="nav-links">
+      <a href="#" onclick="event.preventDefault(); document.getElementById('why').scrollIntoView({behavior:'smooth'})">Method</a>
+      <a href="#" onclick="event.preventDefault(); document.getElementById('map').scrollIntoView({behavior:'smooth'})">Explore</a>
+      <a href="https://github.com/andy-j-kim/EcoClustering" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<main id="view-landing" class="view active">
+  <section class="hero">
+    <div class="container">
+      <div class="hero-eyebrow">Asset-based wealth estimation</div>
+      <h1>Four questions to estimate household wealth in sub-Saharan Africa.</h1>
+      <p class="hero-lede">
+        The DHS Wealth Index asks about 30+ household assets to place families on a wealth gradient. In acute clinical care, trauma registries, or rapid surveys, that's not feasible. EconomicClusters identifies the four asset questions that, for each country, separate households into the most distinct wealth groups &mdash; validated against child mortality, women's education, and primary healthcare source.
+      </p>
+      <div class="hero-stats">
+        <div><div class="stat-num">33</div><div class="stat-label">Sub-Saharan countries analyzed</div></div>
+        <div><div class="stat-num">4</div><div class="stat-label">Asset questions per country</div></div>
+        <div><div class="stat-num">5</div><div class="stat-label">Validated wealth ranks</div></div>
+        <div><div class="stat-num">~30&times;</div><div class="stat-label">Fewer questions than DHS</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="why" class="why">
+    <div class="container">
+      <div class="why-grid">
+        <div>
+          <span class="pill">How it works</span>
+          <h2 style="margin-top:16px; margin-bottom:20px;">From 30 asset variables to 4, without losing the wealth signal.</h2>
+          <p>For each DHS country, we filter the household survey down to 20&ndash;40 candidate asset variables (electronics, structural features, livestock, financial access), then exhaustively cluster every possible 4-variable subset using weighted Partitioning Around Medoids with a Hamming distance metric.</p>
+          <p>The subset producing the most well-separated clusters &mdash; measured by average silhouette width (ASW) &mdash; becomes the country's recommended 4-question survey. We then rank-order the resulting household groups by their average asset count to construct five wealth ranks, and validate those ranks against three independent wealth indicators.</p>
+          <p>Click into any country below to see its top-performing variable sets, the wealth groups they produce, and how strongly those groups predict known wealth outcomes.</p>
+        </div>
+        <div class="why-cards">
+          <div class="why-card"><h4>Cluster method</h4><p>Weighted PAM (k=5) over Hamming dissimilarity, scored by average silhouette width.</p></div>
+          <div class="why-card"><h4>Variable filtering</h4><p>Drop variables with &gt;10% missingness, &gt;90% concentration in one category, or composite redundancy.</p></div>
+          <div class="why-card"><h4>Validation</h4><p>Ordered logistic regression of cluster wealth rank against child mortality, women's education, and primary healthcare source.</p></div>
+          <div class="why-card"><h4>Reproducibility</h4><p>Implementation in R; full pipeline and per-country outputs open-sourced on GitHub.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="map" class="map-section">
+    <div class="container">
+      <div class="map-header">
+        <div>
+          <span class="pill">Explore</span>
+          <h2 style="margin-top:16px;">Select a country.</h2>
+          <p>33 sub-Saharan African countries with DHS data analyzed by the EconomicClusters algorithm. Click to see the country's recommended 4-asset survey, alternative high-performing subsets, and full validation against wealth indicators.</p>
+        </div>
+      </div>
+      <div class="map-wrapper">
+        <div class="map-controls">
+          <span><span class="legend-dot legend-study"></span>Study country (click to explore)</span>
+          <span><span class="legend-dot legend-inactive"></span>Not in study</span>
+        </div>
+        <svg id="map-svg" viewBox="0 0 900 900"></svg>
+        <div class="map-tooltip" id="map-tooltip"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<main id="view-country" class="view">
+  <section class="country-header">
+    <div class="container">
+      <div class="breadcrumb"><a href="#" onclick="event.preventDefault(); showView('landing')">Back to all countries</a></div>
+      <div class="country-title-row">
+        <div>
+          <h1 id="country-name">Cameroon</h1>
+          <div class="country-meta">
+            <span><strong id="country-year">2018</strong> DHS</span>
+            <span><strong id="country-n">11,710</strong> households</span>
+            <span><strong id="country-nvars">32</strong> candidate variables</span>
+            <span>GDP/capita <strong id="country-gdp">$1,593</strong></span>
+            <span id="country-mode-badge"></span>
+          </div>
+        </div>
+        <div><span class="pill" id="country-cc">CM18</span></div>
+      </div>
+    </div>
+  </section>
+  <div class="container">
+    <div class="country-body">
+      <div>
+        <div class="section-block">
+          <h3>Top-performing variable subsets</h3>
+          <div class="section-sub">Ranked by average silhouette width (ASW). Click any row to see the full clustering report and validation tables.</div>
+          <div class="table-wrap">
+            <table class="data" id="topsets-table">
+              <thead><tr><th style="width: 50px;">Set</th><th style="width: 130px;">ASW</th><th>Variables</th></tr></thead>
+              <tbody id="topsets-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="compute-box">
+          <h4>Try your own 4-asset combination</h4>
+          <p>Beyond the top-ranked subsets above, you can build a custom survey from any 4 of this country's candidate variables. The clustering and validation will be computed in-browser using WebR.</p>
+          <button class="button" onclick="openComputeModal()">Build custom subset &rarr;</button>
+        </div>
+      </div>
+      <div>
+        <div class="section-block">
+          <h3>Candidate variables</h3>
+          <div class="section-sub">All <span id="variables-count">32</span> variables that passed the filtering thresholds. The "% in top sets" badge shows how often each variable appears across the top 10 ASW subsets.</div>
+          <div class="var-grid" id="variables-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<main id="view-report" class="view">
+  <section class="report-header">
+    <div class="container">
+      <div class="breadcrumb"><a href="#" onclick="event.preventDefault(); showView('country')">Back to <span id="report-back-country">Cameroon</span></a></div>
+      <div class="country-title-row">
+        <div>
+          <span class="pill" style="background:var(--accent-soft); color:#7a3413;">Set <span id="report-set-num">1</span></span>
+          <h1 style="margin-top:16px;">Clustering report</h1>
+          <p style="margin-top:8px; color:var(--ink-muted); font-size:0.95rem;"><span id="report-country-name">Cameroon</span> <span id="report-country-year">2018</span> &middot; <span id="report-vars-summary"></span></p>
+        </div>
+      </div>
+      <div class="report-summary">
+        <div class="summary-stat"><div class="stat-label">Average silhouette width</div><div class="stat-num" id="report-asw">0.95</div><div class="stat-detail">Higher = better-separated clusters</div></div>
+        <div class="summary-stat"><div class="stat-label">Households</div><div class="stat-num" id="report-n">11,710</div><div class="stat-detail">DHS sample</div></div>
+        <div class="summary-stat"><div class="stat-label">Wealth ranks</div><div class="stat-num">5</div><div class="stat-detail">From least to most asset-rich</div></div>
+        <div class="summary-stat"><div class="stat-label">Validation</div><div class="stat-num" id="report-validation-status">—</div><div class="stat-detail" id="report-validation-detail">Significant trend across indicators</div></div>
+      </div>
+    </div>
+  </section>
+  <div class="container">
+    <div class="section-block" style="padding-top:24px;">
+      <h4 style="margin-bottom:12px;">Selected assets</h4>
+      <div class="selected-vars" id="report-selected-vars"></div>
+    </div>
+    <div class="section-block">
+      <h3>Cluster configuration</h3>
+      <div class="section-sub">Each row is an asset-ownership pattern observed in the data. Patterns sharing a cluster ID were grouped by the PAM algorithm. Wealth rank is assigned by sorting clusters by their proportion-weighted average asset count (1 = lowest, 5 = highest).</div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Cluster</th><th>Wealth rank</th><th id="patt-head-1">Asset pattern</th><th>Total assets</th><th>Weighted avg.</th><th>Proportion</th></tr></thead>
+          <tbody id="cluster-config-body"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="section-block">
+      <h3>Validation against wealth indicators</h3>
+      <div class="section-sub">Each table shows how the constructed wealth ranks distribute across an established wealth indicator. A significant test-of-trend in the expected direction validates that the ranks behave like a wealth gradient.</div>
+      <div class="val-grid" id="validation-container"></div>
+    </div>
+  </div>
+</main>
+
+<div class="modal-overlay" id="compute-modal" onclick="if(event.target===this) closeComputeModal()">
+  <div class="modal">
+    <h3>Custom subset compute &mdash; coming in v1</h3>
+    <p>This panel will let you pick any 4 of this country's <span id="modal-nvars">32</span> candidate variables and run the full clustering + validation pipeline in your browser using WebR (WebAssembly R).</p>
+    <p style="background:var(--surface-2); padding:12px 14px; border-radius:8px; font-size:0.88rem; color:var(--ink-soft);">
+      <strong style="color:var(--ink);">Status:</strong> Stubbed for the prototype. The two dependencies that need to be confirmed in WebR are <span class="mono">parallelDist</span> and <span class="mono">WeightedCluster</span>.
+    </p>
+    <div class="modal-actions"><button class="button" onclick="closeComputeModal()">Got it</button></div>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div>
+      <strong>EconomicClusters</strong> &middot; A rapid wealth-estimation tool for sub-Saharan Africa<br>
+      DHS data: <a href="https://dhsprogram.com/data/" target="_blank" rel="noopener">dhsprogram.com</a> &middot; Code: <a href="https://github.com/andy-j-kim/EcoClustering" target="_blank" rel="noopener">github.com/andy-j-kim/EcoClustering</a>
+    </div>
+    <div style="text-align:right;">Prototype build &middot; UC Berkeley + UCLA + collaborators</div>
+  </div>
+</footer>
+
+<script>
+// ===== Country registry (synced with R script COUNTRY_METADATA) =====
+const COUNTRIES = {
+  24:  { cc: "AO15", name: "Angola",        year: "2015",      n: 15857, nvars: 21, asw: 0.9541, gdp: "$3,217", live: false },
+  204: { cc: "BJ17", name: "Benin",         year: "2017",      n: 14028, nvars: 18, asw: 0.8996, gdp: "$1,095", live: false },
+  854: { cc: "BF21", name: "Burkina Faso",  year: "2021",      n: 13248, nvars: 23, asw: 0.8959, gdp: "$889",   live: false },
+  108: { cc: "BU16", name: "Burundi",       year: "2016-17",   n: 15977, nvars: 23, asw: 0.9289, gdp: "$243",   live: false },
+  120: { cc: "CM18", name: "Cameroon",      year: "2018",      n: 11710, nvars: 32, asw: 0.9476, gdp: "$1,593", live: true  },
+  148: { cc: "TD14", name: "Chad",          year: "2014",      n: 17193, nvars: 17, asw: 0.8641, gdp: "$1,018", live: false },
+  174: { cc: "KM12", name: "Comoros",       year: "2012",      n:  4355, nvars: 21, asw: 0.8835, gdp: "$1,484", live: false },
+  180: { cc: "CD13", name: "Congo DRC",     year: "2013-14",   n: 18171, nvars: 19, asw: 0.9058, gdp: "$445",   live: false },
+  231: { cc: "ET19", name: "Ethiopia",      year: "2019",      n:  8663, nvars: 21, asw: 0.9556, gdp: "$841",   live: false },
+  266: { cc: "GA12", name: "Gabon",         year: "2012",      n:  8924, nvars: 31, asw: 0.9865, gdp: "$9,349", live: false },
+  270: { cc: "GM19", name: "Gambia",        year: "2019-20",   n:  6544, nvars: 32, asw: 0.9511, gdp: "$723",   live: false },
+  288: { cc: "GH22", name: "Ghana",         year: "2022",      n: 17819, nvars: 27, asw: 0.9306, gdp: "$2,260", live: false },
+  324: { cc: "GN18", name: "Guinea",        year: "2018",      n:  7899, nvars: 25, asw: 0.9448, gdp: "$944",   live: false },
+  384: { cc: "CI11", name: "Ivory Coast",   year: "2011-12",   n:  9677, nvars: 23, asw: 0.8964, gdp: "$1,800", live: false },
+  404: { cc: "KE22", name: "Kenya",         year: "2022",      n: 37838, nvars: 27, asw: 0.9268, gdp: "$2,099", live: false },
+  426: { cc: "LS14", name: "Lesotho",       year: "2014",      n:  9402, nvars: 20, asw: 0.9017, gdp: "$1,165", live: false },
+  430: { cc: "LB19", name: "Liberia",       year: "2019-20",   n:  9006, nvars: 20, asw: 0.8745, gdp: "$666",   live: false },
+  450: { cc: "MD21", name: "Madagascar",    year: "2021",      n: 20494, nvars: 22, asw: 0.9118, gdp: "$503",   live: false },
+  454: { cc: "MW15", name: "Malawi",        year: "2015-16",   n: 26109, nvars: 21, asw: 0.9160, gdp: "$544",   live: false },
+  466: { cc: "ML18", name: "Mali",          year: "2018",      n:  9494, nvars: 24, asw: 0.9215, gdp: "$856",   live: false },
+  508: { cc: "MZ11", name: "Mozambique",    year: "2011",      n: 13699, nvars: 19, asw: 0.9141, gdp: "$615",   live: false },
+  516: { cc: "NM13", name: "Namibia",       year: "2013",      n:  9573, nvars: 26, asw: 0.9016, gdp: "$5,463", live: false },
+  562: { cc: "NI12", name: "Niger",         year: "2012",      n: 10505, nvars: 20, asw: 0.9532, gdp: "$525",   live: false },
+  566: { cc: "NG18", name: "Nigeria",       year: "2018",      n: 40403, nvars: 25, asw: 0.8879, gdp: "$2,126", live: false },
+  646: { cc: "RW19", name: "Rwanda",        year: "2019",      n: 12948, nvars: 26, asw: 0.9930, gdp: "$806",   live: false },
+  686: { cc: "SN19", name: "Senegal",       year: "2019",      n:  4538, nvars: 24, asw: 0.9219, gdp: "$1,463", live: false },
+  694: { cc: "SL19", name: "Sierra Leone",  year: "2019",      n: 13141, nvars: 18, asw: 0.9363, gdp: "$507",   live: false },
+  710: { cc: "ZA16", name: "South Africa",  year: "2016",      n: 11083, nvars: 20, asw: 0.9411, gdp: "$5,735", live: true  },
+  834: { cc: "TZ22", name: "Tanzania",      year: "2022",      n: 15660, nvars: 29, asw: 0.9076, gdp: "$1,193", live: false },
+  768: { cc: "TG13", name: "Togo",          year: "2013-14",   n:  9532, nvars: 20, asw: 0.9165, gdp: "$847",   live: false },
+  800: { cc: "UG16", name: "Uganda",        year: "2016",      n: 19519, nvars: 29, asw: 0.9252, gdp: "$754",   live: true  },
+  894: { cc: "ZM18", name: "Zambia",        year: "2018",      n: 12537, nvars: 23, asw: 0.9287, gdp: "$1,475", live: false },
+  716: { cc: "ZW15", name: "Zimbabwe",      year: "2015",      n: 10356, nvars: 34, asw: 0.9285, gdp: "$1,410", live: false },
+};
+
+// Cache for per-country bundles fetched from data/<CC>.json
+const COUNTRY_CACHE = {};
+
+async function fetchCountryBundle(cc) {
+  if (COUNTRY_CACHE[cc]) return COUNTRY_CACHE[cc];
+  try {
+    const resp = await fetch(`data/${cc}.json`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const bundle = await resp.json();
+    const adapted = adaptBundle(bundle);
+    COUNTRY_CACHE[cc] = adapted;
+    return adapted;
+  } catch (err) {
+    console.warn(`fetchCountryBundle(${cc}) failed:`, err.message);
+    return null;
+  }
+}
+
+function adaptBundle(b) {
+  return {
+    cc: b.cc, name: b.name, year: b.year, mode: b.mode || 'full',
+    n: b.n_households, nvars: b.n_candidate_vars,
+    gdp: typeof b.gdp_per_capita_usd === 'number'
+         ? '$' + b.gdp_per_capita_usd.toLocaleString(undefined, {maximumFractionDigits: 0})
+         : b.gdp_per_capita_usd,
+    variables: (b.candidate_variables || []).map(v => ({
+      code: v.code, desc: v.label, pct: v.pct_in_top_sets || 0,
+      dist: variableDistDisplay(v)
+    })),
+    topSets: (b.top_sets || []).map(s => ({ rank: s.rank, asw: s.asw, vars: s.var_labels })),
+    sets: b.sets || {}
+  };
+}
+
+function variableDistDisplay(v) {
+  if (v.type === 'binary') {
+    return v.marginal && v.marginal.yes_pct != null
+      ? `Binary, ${v.marginal.yes_pct}% yes` : 'Binary';
+  }
+  if (v.type === 'categorical' && v.marginal && v.marginal.levels && v.marginal.levels.length) {
+    return v.marginal.levels.map((l,i) => `${l} ${v.marginal.pct[i]}%`).join(', ');
+  }
+  return 'Categorical';
+}
+
+function showView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+// ===== Map rendering =====
+const TOPO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+const tooltip = document.getElementById('map-tooltip');
+
+function showTooltip(html, evt) { tooltip.innerHTML = html; tooltip.classList.add('show'); positionTooltip(evt); }
+function hideTooltip() { tooltip.classList.remove('show'); }
+function positionTooltip(evt) {
+  const rect = document.querySelector('.map-wrapper').getBoundingClientRect();
+  let x = evt.clientX - rect.left + 12, y = evt.clientY - rect.top + 12;
+  if (x + tooltip.offsetWidth + 24 > rect.width) x = evt.clientX - rect.left - tooltip.offsetWidth - 12;
+  tooltip.style.left = x + 'px'; tooltip.style.top = y + 'px';
+}
+
+d3.json(TOPO_URL).then(world => {
+  const countriesGeo = topojson.feature(world, world.objects.countries);
+  const inAfricaBBox = ([x,y]) => x > -25 && x < 55 && y > -38 && y < 38;
+  const africaFeatures = countriesGeo.features.filter(f => inAfricaBBox(d3.geoCentroid(f)));
+
+  const svg = d3.select('#map-svg');
+  const projection = d3.geoMercator().fitSize([900, 900], { type: 'FeatureCollection', features: africaFeatures });
+  const path = d3.geoPath().projection(projection);
+
+  const g = svg.append('g');
+  g.selectAll('path.country').data(africaFeatures).enter().append('path')
+    .attr('class', d => COUNTRIES[+d.id] ? 'country study' : 'country inactive')
+    .attr('d', path)
+    .on('mousemove', function(evt, d) {
+      const meta = COUNTRIES[+d.id];
+      if (!meta) {
+        showTooltip(`<div class="tt-name">${d.properties.name}</div><div class="tt-meta">Not in this study</div>`, evt);
+      } else {
+        showTooltip(`<div class="tt-name">${meta.name}</div><div class="tt-meta">${meta.cc} &middot; ${meta.n.toLocaleString()} households &middot; ASW ${meta.asw.toFixed(2)}</div><div class="tt-meta">Click to view</div>`, evt);
+      }
+    })
+    .on('mouseleave', hideTooltip)
+    .on('click', async function(evt, d) {
+      const meta = COUNTRIES[+d.id];
+      if (!meta) return;
+      const bundle = await fetchCountryBundle(meta.cc);
+      if (bundle) {
+        renderCountry(bundle);
+        showView('country');
+      } else {
+        alert(`${meta.name} (${meta.cc}) — per-country JSON not yet present at data/${meta.cc}.json. Run the R export script for this country to populate it.\n\nMetadata: n=${meta.n.toLocaleString()} households, ${meta.nvars} candidate variables, top ASW=${meta.asw.toFixed(4)}.`);
+      }
+    });
+
+  g.selectAll('text.country-label').data(africaFeatures.filter(f => COUNTRIES[+f.id])).enter().append('text')
+    .attr('class', 'country-label').attr('transform', d => `translate(${path.centroid(d)})`)
+    .text(d => COUNTRIES[+d.id].name)
+    .each(function(d) {
+      const pathEl = d3.select(this.parentNode).selectAll('path.country').filter(p => p === d).node();
+      if (pathEl) {
+        const pbox = pathEl.getBBox();
+        if (pbox.width < 40) d3.select(this).style('display','none');
+      }
+    });
+});
+
+function renderCountry(c) {
+  document.getElementById('country-name').textContent = c.name;
+  document.getElementById('country-year').textContent = c.year;
+  document.getElementById('country-n').textContent = c.n.toLocaleString();
+  document.getElementById('country-nvars').textContent = c.nvars;
+  document.getElementById('country-gdp').textContent = c.gdp;
+  document.getElementById('country-cc').textContent = c.cc;
+  document.getElementById('variables-count').textContent = c.nvars;
+  document.getElementById('modal-nvars').textContent = c.nvars;
+
+  const modeBadge = document.getElementById('country-mode-badge');
+  modeBadge.innerHTML = c.mode === 'clustering_only'
+    ? '<span class="pill warn" title="Validation tables not available — raw DHS files missing">Clustering only</span>'
+    : '';
+
+  const tbody = document.getElementById('topsets-body');
+  tbody.innerHTML = '';
+  const maxAsw = Math.max(...c.topSets.map(s => s.asw));
+  c.topSets.forEach((s) => {
+    const row = document.createElement('tr');
+    row.className = 'set-row' + (s.rank === 1 ? ' selected' : '');
+    const aswPct = (s.asw / maxAsw) * 100;
+    row.innerHTML = `
+      <td><span class="set-num">${s.rank}</span></td>
+      <td><div class="asw-bar"><span class="asw-val">${s.asw.toFixed(4)}</span><div class="asw-bar-track"><div class="asw-bar-fill" style="width:${aswPct}%"></div></div></div></td>
+      <td>${s.vars.map(v=>`<span style="background:var(--surface-2); padding:3px 9px; border-radius:999px; font-size:0.82rem; margin-right:4px; display:inline-block; margin-bottom:3px;">${escapeHtml(v)}</span>`).join('')}</td>
+    `;
+    row.addEventListener('click', () => {
+      const setData = c.sets && c.sets[String(s.rank)];
+      if (setData) { renderReport(c, s, setData); showView('report'); }
+      else { alert(`Set #${s.rank} (ASW ${s.asw.toFixed(4)}) isn't in the loaded JSON bundle yet. To enable it, increase TOP_N_SETS in export_country_json.R and re-run for ${c.name}.`); }
+    });
+    tbody.appendChild(row);
+  });
+
+  const varList = document.getElementById('variables-list');
+  varList.innerHTML = '';
+  c.variables.forEach(v => {
+    const chip = document.createElement('div');
+    chip.className = 'var-chip';
+    const pctHtml = v.pct > 0
+      ? `<div class="pct" title="Appears in ${v.pct}% of the top-10 ASW sets">${v.pct}%</div>`
+      : `<div class="pct none">—</div>`;
+    chip.innerHTML = `
+      <div style="min-width:0;">
+        <div class="desc">${escapeHtml(v.desc)}</div>
+        <div class="code">${escapeHtml(v.code)}</div>
+        <div class="dist">${escapeHtml(v.dist || '')}</div>
+      </div>
+      ${pctHtml}
+    `;
+    varList.appendChild(chip);
+  });
+}
+
+function renderReport(c, set, setData) {
+  document.getElementById('report-set-num').textContent = set.rank;
+  document.getElementById('report-asw').textContent = set.asw.toFixed(4);
+  document.getElementById('report-vars-summary').textContent = set.vars.join(' · ');
+  document.getElementById('report-country-name').textContent = c.name;
+  document.getElementById('report-country-year').textContent = c.year;
+  document.getElementById('report-n').textContent = c.n.toLocaleString();
+  document.getElementById('report-back-country').textContent = c.name;
+
+  const sel = document.getElementById('report-selected-vars');
+  sel.innerHTML = '';
+  set.vars.forEach((v,i) => {
+    const span = document.createElement('span');
+    span.className = 'selected-var';
+    span.innerHTML = `<span class="ord">${i+1}</span>${escapeHtml(v)}`;
+    sel.appendChild(span);
+  });
+
+  const varTypes = (setData && setData.var_types) ? setData.var_types : set.vars.map(() => 'binary');
+  const clusters = setData ? setData.clusters.map(cl => ({
+    id: cl.id, rank: cl.wealth_rank, propPct: cl.prop_pct, wAvg: cl.w_avg,
+    patterns: cl.patterns.map(p => ({
+      values: p.values || (p.bits ? p.bits.map(String) : []),
+      n: p.n, asset_count: p.asset_count
+    }))
+  })) : [];
+
+  document.getElementById('patt-head-1').textContent = 'Asset pattern (' + set.vars.map(v => v.replace(/^has /,'')).join(' / ') + ')';
+
+  const cfgBody = document.getElementById('cluster-config-body');
+  cfgBody.innerHTML = '';
+  const sortedClusters = [...clusters].sort((a,b) => b.rank - a.rank);
+  sortedClusters.forEach(cluster => {
+    cluster.patterns.forEach((p, pi) => {
+      const tr = document.createElement('tr');
+      const isFirst = pi === 0;
+      const patternHtml = renderPatternValues(p.values, varTypes);
+      const totalAssets = (p.asset_count != null) ? p.asset_count : countAssets(p.values, varTypes);
+      tr.innerHTML = `
+        <td>${isFirst ? `<strong>${cluster.id}</strong>` : ''}</td>
+        <td>${isFirst ? `<span class="rank-badge rank-${cluster.rank}">${cluster.rank}</span>` : ''}</td>
+        <td><span class="pattern-cell">${patternHtml}</span> <span style="color:var(--ink-muted); font-size:0.82rem; margin-left:8px; white-space:nowrap;">n=${p.n.toLocaleString()}</span></td>
+        <td>${totalAssets}</td>
+        <td>${isFirst ? Number(cluster.wAvg).toFixed(2) : ''}</td>
+        <td>${isFirst ? Number(cluster.propPct).toFixed(2)+'%' : ''}</td>
+      `;
+      if (!isFirst) tr.style.color = 'var(--ink-muted)';
+      cfgBody.appendChild(tr);
+    });
+  });
+
+  const valContainer = document.getElementById('validation-container');
+  valContainer.innerHTML = '';
+  const validation = setData && setData.validation;
+  const validationStatus = document.getElementById('report-validation-status');
+  const validationDetail = document.getElementById('report-validation-detail');
+
+  if (validation) {
+    renderValidationCard(valContainer, 'Household child mortality',
+      'Proportion of household children deceased, banded into four categories. Higher wealth rank should associate with lower mortality.',
+      validation.mortality);
+    renderValidationCard(valContainer, "Women's educational attainment",
+      'Highest level of education attained by the household-representative woman. Higher wealth rank should associate with higher educational attainment.',
+      validation.education, true);
+    renderValidationCard(valContainer, 'Primary healthcare source',
+      "Household's main source of healthcare. Higher wealth rank is expected to associate with private rather than public sources.",
+      validation.healthcare);
+
+    const indicators = ['mortality','education','healthcare'];
+    const pass = indicators.filter(k => {
+      const olr = validation[k] && validation[k].olr;
+      return olr && olr.or > 1.0 && olr.ci_lo > 1.0;
+    }).length;
+    validationStatus.textContent = pass + ' / ' + indicators.length;
+    validationStatus.style.color = pass === 3 ? 'var(--primary)' : 'var(--warn)';
+    validationDetail.textContent = 'Significant trend across indicators';
+  } else {
+    valContainer.innerHTML = `
+      <div class="val-pending">
+        <h4>Validation pending</h4>
+        <p style="margin-bottom:8px;">Clustering data is shown above, but the validation tables (child mortality, women's education, primary healthcare source) require raw DHS Household and Individual Recode files, which haven't been wired in for ${escapeHtml(c.name)} yet.</p>
+        <p style="margin:0; font-size:0.85rem;">To enable: add the HH and IR DTA paths for this country to the R export script's <span class="mono">DHS_PATH_OVERRIDES</span> (or place files at the conventional location under <span class="mono">data/dhs/</span>) and re-run.</p>
+      </div>`;
+    validationStatus.textContent = '—';
+    validationStatus.style.color = 'var(--ink-muted)';
+    validationDetail.textContent = 'Awaiting raw DHS files';
+  }
+}
+
+function renderValidationCard(container, title, sub, val, includeWMean) {
+  if (!val) return;
+  const card = document.createElement('div');
+  card.className = 'val-card';
+  const olr = val.olr || {};
+  const ciStr = (olr.ci_lo != null && olr.ci_hi != null) ? `[${olr.ci_lo.toFixed(2)}, ${olr.ci_hi.toFixed(2)}]` : '—';
+  const pStr = olr.p_display || (olr.p != null ? olr.p.toExponential(1) : '—');
+  const orStr = olr.or != null ? olr.or.toFixed(2) : '—';
+
+  const headers = ['Wealth rank', ...val.categories];
+  if (includeWMean) headers.push('W. mean');
+  const thead = '<thead><tr>' + headers.map(h => `<th>${escapeHtml(h)}</th>`).join('') + '</tr></thead>';
+
+  const rowsHtml = val.rows.map(r => {
+    const cells = r.counts.map((c,i) => `<td>${c.toLocaleString()} (${r.pcts[i].toFixed(1)}%)</td>`).join('');
+    const wMeanCell = includeWMean ? `<td><strong>${r.w_mean != null ? r.w_mean.toFixed(2) : '—'}</strong></td>` : '';
+    return `<tr><td><span class="rank-badge rank-${r.wealth_rank}">${r.wealth_rank}</span></td>${cells}${wMeanCell}</tr>`;
+  }).join('');
+
+  const totalCells = val.totals.counts.map((c,i) => `<td>${c.toLocaleString()} (${val.totals.pcts[i].toFixed(1)}%)</td>`).join('');
+  const totalWMean = includeWMean ? `<td>${val.totals.w_mean != null ? val.totals.w_mean.toFixed(2) : ''}</td>` : '';
+  const totalsRow = `<tr style="background:var(--surface-2); font-weight:600;"><td>Total</td>${totalCells}${totalWMean}</tr>`;
+
+  card.innerHTML = `
+    <div class="val-card-header">
+      <div><h3>${escapeHtml(title)}</h3><div class="sub">${escapeHtml(sub)}</div></div>
+      <div class="val-stats">
+        <div class="val-stat"><div class="num">${orStr}</div><div class="lbl">Odds ratio</div></div>
+        <div class="val-stat"><div class="num">${ciStr}</div><div class="lbl">95% CI</div></div>
+        <div class="val-stat"><div class="num">${pStr}</div><div class="lbl">Trend p-value</div></div>
+      </div>
+    </div>
+    <table class="data">${thead}<tbody>${rowsHtml}${totalsRow}</tbody></table>
+    <div class="footnote">${trendFootnote(olr)}</div>`;
+  container.appendChild(card);
+}
+
+function trendFootnote(olr) {
+  if (!olr || olr.or == null) return 'No regression result available.';
+  const dir = olr.or > 1.0 ? 'Positive' : 'Negative';
+  const chi = olr.chi2_p_display || (olr.chi2_p != null ? olr.chi2_p : '—');
+  return `${dir} trend in the expected direction. OR ${olr.or.toFixed(2)} per one-unit increase in wealth rank. Chi-squared p ${chi}.`;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderPatternValues(values, varTypes) {
+  return values.map((val, i) => {
+    const t = varTypes[i] || 'binary';
+    if (t === 'binary') {
+      const isOn = (val === '1' || val === 1 || val === true || val === 'TRUE');
+      return `<span class="pattern-bit ${isOn ? 'on' : 'off'}">${isOn ? '1' : '0'}</span>`;
+    }
+    return `<span class="pattern-cat" data-level="${escapeHtml(val)}">${escapeHtml(val)}</span>`;
+  }).join('');
+}
+
+function countAssets(values, varTypes) {
+  let total = 0;
+  values.forEach((v, i) => {
+    if (varTypes[i] === 'binary' && (v === '1' || v === 1 || v === true)) total += 1;
+  });
+  return total;
+}
+
+function openComputeModal() { document.getElementById('compute-modal').classList.add('show'); }
+function closeComputeModal() { document.getElementById('compute-modal').classList.remove('show'); }
+
+document.addEventListener('mousemove', (evt) => { if (tooltip.classList.contains('show')) positionTooltip(evt); });
+</script>
+
+</body>
+</html>
