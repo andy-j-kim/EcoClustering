@@ -308,3 +308,5 @@ if("pritab" %in% names(val_tables)){
 }
 ```
 
+## Look at correlation of our cluster and that 
+
