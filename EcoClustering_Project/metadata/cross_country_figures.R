@@ -10,8 +10,9 @@ library(sp)
 library(spData)
 library(spDataLarge)
 #library(raster)
+remotes::install_github("Nowosad/spDataLarge")
 
-data <- read.csv("~/Desktop/EcoClustering/metadata/crosscountryfull.csv")
+data <- read.csv("./metadata/crosscountryfull.csv")
 
 table(data$description)
 
