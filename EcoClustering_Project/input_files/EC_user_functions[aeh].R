@@ -453,7 +453,8 @@ print_clus_dist <- function(data = dhs,
                             set = set, 
                             code_mat = top_dhscode_table, 
                             label_df = dhs_labels, 
-                            nCores = nCores){
+                            nCores = nCores)
+  {
   
   nvar <- ncol(code_mat)
   set_vars <- as.vector(code_mat[set, 1:nvar])
@@ -517,7 +518,7 @@ create_label_df <- function(labelled_dhs_df){
 
 clean_individual_dhs <- function(ind_dhs){
   
-  ind_vars <- c("v001", "v002", "v005")
+  ind_vars <- c("v001", "v002", "v005","v190")
   
   if(c("v149") %in% names(ind_dhs)){
     ind_vars <- c(ind_vars, "v149")
