@@ -184,6 +184,9 @@ merged_dhs <- hh %>%
 val_tables <- create_validation_tables(merged_data = merged_dhs)
 ```
 
+### merged_dhs has all the variables I need for the comparison of our clusters to DHS. "id" is the cluster number.
+
+
 ## a.1) Using Children Deceased (Sorted by proportion of 0%)
 
 ```{r dec tab}
