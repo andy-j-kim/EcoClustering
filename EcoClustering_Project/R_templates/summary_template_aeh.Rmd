@@ -182,6 +182,8 @@ merged_dhs <- hh %>%
         by.y=c("v001", "v002"), all.y=FALSE)
 
 val_tables <- create_validation_tables(merged_data = merged_dhs)
+
+write_csv(merged_dhs,file="/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubbardlap/grantproposals/Data Science in Africa/Project 1/EcoClustGit/EcoClustering_Project/data/DataforAlan/Cameroon.csv")
 ```
 
 ### merged_dhs has all the variables I need for the comparison of our clusters to DHS. "id" is the cluster number.
