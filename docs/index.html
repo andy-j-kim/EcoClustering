@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <script src="https://unpkg.com/topojson-client@3"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root {
     --bg: #f7f5f0; --surface: #ffffff; --surface-2: #faf8f3;
@@ -122,6 +123,29 @@
   .asw-val { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 500; }
 
   .var-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+  .source-card {
+    background: var(--surface-2); border: 1px solid var(--rule);
+    border-radius: var(--radius); padding: 18px 20px;
+  }
+  .source-card h4 {
+    font-family: 'Fraunces', serif; text-transform: none; letter-spacing: 0;
+    font-size: 1rem; color: var(--ink); margin-bottom: 6px; font-weight: 600;
+  }
+  .source-card p { font-size: 0.86rem; margin-bottom: 12px; color: var(--ink-soft); }
+  .source-links { display: grid; gap: 8px; }
+  .source-link {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; background: var(--surface); border: 1px solid var(--rule);
+    border-radius: 8px; font-size: 0.88rem; color: var(--ink);
+    text-decoration: none; transition: border-color 0.12s ease, background 0.12s ease;
+  }
+  .source-link:hover { border-color: var(--primary); background: var(--primary-soft); text-decoration: none; }
+  .source-link strong { display: block; font-weight: 600; color: var(--ink); }
+  .source-link .src-meta { display: block; font-size: 0.78rem; color: var(--ink-muted); margin-top: 2px; }
+  .source-link .src-icon {
+    color: var(--primary-deep); font-weight: 700; font-size: 1rem; line-height: 1;
+    flex-shrink: 0;
+  }
   .var-chip { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; font-size: 0.88rem; display: flex; justify-content: space-between; align-items: start; gap: 8px; }
   .var-chip .code { color: var(--ink-muted); font-family: 'SF Mono', monospace; font-size: 0.74rem; }
   .var-chip .desc { color: var(--ink); font-weight: 500; line-height: 1.3; }
@@ -145,6 +169,87 @@
   .selected-vars { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
   .selected-var { background: var(--primary-soft); color: var(--primary-deep); padding: 6px 12px; border-radius: 999px; font-size: 0.88rem; font-weight: 500; }
   .selected-var .ord { display: inline-block; width: 18px; height: 18px; border-radius: 50%; background: var(--primary); color: white; text-align: center; line-height: 18px; font-size: 0.7rem; margin-right: 8px; }
+
+  /* ============ Survey instrument panel ============ */
+  .instrument-wrap {
+    background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius);
+    padding: 28px; box-shadow: var(--shadow-sm);
+  }
+  .instrument-pending {
+    background: var(--surface-2); border: 1px dashed var(--rule-strong);
+    border-radius: var(--radius); padding: 20px 24px;
+    color: var(--ink-muted); font-size: 0.9rem;
+  }
+  .instrument-header {
+    display: flex; justify-content: space-between; align-items: start; gap: 24px;
+    flex-wrap: wrap; margin-bottom: 20px;
+    padding-bottom: 16px; border-bottom: 1px solid var(--rule);
+  }
+  .instrument-header h3 { margin: 0; font-size: 1.15rem; }
+  .instrument-header .sub { font-size: 0.85rem; color: var(--ink-muted); margin-top: 4px; max-width: 60ch; }
+  .instrument-meta {
+    font-size: 0.78rem; color: var(--ink-muted); white-space: nowrap;
+    background: var(--surface-2); padding: 4px 10px; border-radius: 999px; font-weight: 500;
+  }
+  .instrument-questions { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .q-card {
+    border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px;
+    display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .q-card[data-answered="yes"] { border-color: var(--primary); background: rgba(14,107,94,0.04); }
+  .q-card[data-answered="no"]  { border-color: var(--rule-strong); background: var(--surface-2); }
+  .q-card-text { min-width: 0; }
+  .q-card-num {
+    display: inline-block; background: var(--primary-soft); color: var(--primary-deep);
+    font-family: 'Fraunces', serif; font-weight: 600; font-size: 0.85rem;
+    padding: 2px 8px; border-radius: 4px; margin-right: 8px; vertical-align: middle;
+  }
+  .q-card-en { font-size: 1rem; color: var(--ink); font-weight: 500; line-height: 1.35; display: inline; }
+  .q-card-local { font-size: 0.9rem; color: var(--ink-muted); font-style: italic; margin-top: 6px; line-height: 1.35; }
+  .yn-toggle {
+    display: inline-flex; border-radius: 999px; background: var(--surface-2);
+    padding: 3px; gap: 2px; flex-shrink: 0;
+  }
+  .yn-toggle button {
+    border: none; background: transparent; padding: 6px 18px; border-radius: 999px;
+    font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.85rem;
+    color: var(--ink-soft); cursor: pointer; min-width: 56px;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .yn-toggle button:hover { color: var(--ink); }
+  .yn-toggle button.yes-active { background: var(--primary); color: white; }
+  .yn-toggle button.no-active  { background: #b8732a; color: white; }
+
+  .instrument-result {
+    margin-top: 20px; padding: 18px 20px;
+    background: linear-gradient(135deg, var(--primary-soft) 0%, var(--surface-2) 100%);
+    border-radius: 10px;
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 20px;
+    border: 1px solid #a5d3c9;
+  }
+  .instrument-result.empty { background: var(--surface-2); border-color: var(--rule); color: var(--ink-muted); }
+  .instrument-result.unmatched { background: #fbe9c8; border-color: #e8c1a3; color: #7a5a0b; }
+  .result-pattern { display: inline-flex; gap: 4px; }
+  .result-pattern .pattern-bit { width: 26px; height: 26px; }
+  .result-text { font-size: 0.92rem; color: var(--ink); }
+  .result-text strong { color: var(--ink); font-weight: 600; }
+  .result-rank-badge {
+    display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%;
+    font-family: 'Fraunces', serif; font-weight: 600; font-size: 1.85rem;
+    color: white; flex-shrink: 0;
+    line-height: 1;
+  }
+  .result-rank-badge.empty { background: var(--rule-strong); color: var(--ink-muted); font-size: 1.4rem; }
+
+  .instrument-actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+  .instrument-actions .button { padding: 9px 16px; font-size: 0.88rem; }
+
+  @media (max-width: 600px) {
+    .q-card { grid-template-columns: 1fr; gap: 12px; }
+    .yn-toggle { justify-self: start; }
+    .instrument-result { grid-template-columns: 1fr; text-align: center; }
+  }
 
   .pattern-cell { display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; }
   .pattern-bit { width: 22px; height: 22px; border-radius: 4px; display: grid; place-items: center; font-size: 0.72rem; font-weight: 700; font-family: 'SF Mono', monospace; flex-shrink: 0; }
@@ -228,6 +333,7 @@
           <div class="why-card"><h4>Variable filtering</h4><p>Drop variables with &gt;10% missingness, &gt;90% concentration in one category, or composite redundancy.</p></div>
           <div class="why-card"><h4>Validation</h4><p>Ordered logistic regression of cluster wealth rank against child mortality, women's education, and primary healthcare source.</p></div>
           <div class="why-card"><h4>Reproducibility</h4><p>Implementation in R; full pipeline and per-country outputs open-sourced on GitHub.</p></div>
+          <div class="why-card"><h4>Data source</h4><p>All survey data and questionnaires are drawn from <a href="https://www.idhsdata.org/idhs/enum_materials.shtml" target="_blank" rel="noopener">IPUMS DHS</a>, the integrated archive of Demographic and Health Surveys. Each country page links to the original household questionnaire used.</p></div>
         </div>
       </div>
     </div>
@@ -298,6 +404,22 @@
           <div class="section-sub">All <span id="variables-count">32</span> variables that passed the filtering thresholds. The "% in top sets" badge shows how often each variable appears across the top 10 ASW subsets.</div>
           <div class="var-grid" id="variables-list"></div>
         </div>
+        <div class="section-block">
+          <div class="source-card" id="country-source-card">
+            <h4>Where these questions come from</h4>
+            <p>The exact survey questions used to capture each variable were drawn from this country's DHS household questionnaire, as archived by IPUMS DHS.</p>
+            <div class="source-links">
+              <a id="source-link-xml" href="#" target="_blank" rel="noopener" class="source-link">
+                <span class="src-icon">↗</span>
+                <span><strong>English survey text</strong><span class="src-meta">IPUMS DHS · IDHS household form (HTML)</span></span>
+              </a>
+              <a id="source-link-pdf" href="#" target="_blank" rel="noopener" class="source-link">
+                <span class="src-icon">↗</span>
+                <span><strong>Original-language survey</strong><span class="src-meta" id="source-link-pdf-meta">IPUMS DHS · Household form PDF</span></span>
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -327,6 +449,13 @@
       <h4 style="margin-bottom:12px;">Selected assets</h4>
       <div class="selected-vars" id="report-selected-vars"></div>
     </div>
+
+    <div class="section-block">
+      <h3>Survey instrument</h3>
+      <div class="section-sub">The four-question survey for field deployment. Answer the questions below to see which wealth rank a household falls into.</div>
+      <div id="instrument-container"></div>
+    </div>
+
     <div class="section-block">
       <h3>Cluster configuration</h3>
       <div class="section-sub">Each row is an asset-ownership pattern observed in the data. Patterns sharing a cluster ID were grouped by the PAM algorithm. Wealth rank is assigned by sorting clusters by their proportion-weighted average asset count (1 = lowest, 5 = highest).</div>
@@ -515,6 +644,7 @@ d3.json(TOPO_URL).then(world => {
 });
 
 function renderCountry(c) {
+  SHARE_CURRENT_CC = c.cc;  // for the Share link button
   document.getElementById('country-name').textContent = c.name;
   document.getElementById('country-year').textContent = c.year;
   document.getElementById('country-n').textContent = c.n.toLocaleString();
@@ -523,6 +653,14 @@ function renderCountry(c) {
   document.getElementById('country-cc').textContent = c.cc;
   document.getElementById('variables-count').textContent = c.nvars;
   document.getElementById('modal-nvars').textContent = c.nvars;
+
+  // Source links to IDHS household survey forms
+  const xmlEl = document.getElementById('source-link-xml');
+  const pdfEl = document.getElementById('source-link-pdf');
+  if (xmlEl && pdfEl) {
+    xmlEl.href = idhsHhXmlUrl(c.cc);
+    pdfEl.href = idhsHhPdfUrl(c.cc);
+  }
 
   const modeBadge = document.getElementById('country-mode-badge');
   modeBadge.innerHTML = c.mode === 'clustering_only'
@@ -586,6 +724,9 @@ function renderReport(c, set, setData) {
     span.innerHTML = `<span class="ord">${i+1}</span>${escapeHtml(v)}`;
     sel.appendChild(span);
   });
+
+  // Survey instrument panel — mock for Cameroon Set 1 only
+  renderSurveyInstrument(c, set, setData);
 
   const varTypes = (setData && setData.var_types) ? setData.var_types : set.vars.map(() => 'binary');
   const clusters = setData ? setData.clusters.map(cl => ({
@@ -706,6 +847,291 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// ====== Survey instrument (mock for Cameroon Set 1 only) =====================
+// Hand-written question bank keyed by (CC -> set rank -> variable label).
+// In production this will come from the per-country JSON bundle (Phase 1/2
+// of the IDHS extraction work). For the mock, only Cameroon Set 1 is wired.
+const SURVEY_QUESTIONS = {
+  "CM18": {
+    "1": {
+      local_lang: "French",
+      questions: {
+        "has television":      { en: "Does your household have a television?",          local: "Votre ménage possède-t-il un téléviseur ?" },
+        "has mobile telephone":{ en: "Does any member of your household have a mobile telephone?", local: "Un membre de votre ménage possède-t-il un téléphone portable ?" },
+        "mixer":               { en: "Does your household have a mixer?",                local: "Votre ménage possède-t-il un mixeur ?" },
+        "cable":               { en: "Does your household have a cable subscription?",   local: "Votre ménage a-t-il un abonnement au câble ?" }
+      }
+    }
+  }
+};
+
+function lookupQuestions(cc, setRank, setVars) {
+  const bank = SURVEY_QUESTIONS[cc] && SURVEY_QUESTIONS[cc][String(setRank)];
+  if (!bank) return null;
+  const items = setVars.map(v => bank.questions[v] || null);
+  if (items.some(x => x == null)) return null;
+  return { local_lang: bank.local_lang, items };
+}
+
+function renderSurveyInstrument(c, set, setData) {
+  const container = document.getElementById('instrument-container');
+  container.innerHTML = '';
+  const bank = lookupQuestions(c.cc, set.rank, set.vars);
+
+  if (!bank) {
+    container.innerHTML = `
+      <div class="instrument-pending">
+        <strong style="color:var(--ink);">Question text not yet wired for this set.</strong>
+        Survey questions are being added per country as we extract them from the IDHS source documents.
+        For now, see the country's
+        <a href="https://www.idhsdata.org/idhs-action/source_documents/survey_form_cm2018_hh_tag.xml" target="_blank" rel="noopener">English HH survey form</a>
+        for question text in this country's actual survey.
+      </div>`;
+    return;
+  }
+
+  // Build the form
+  const wrap = document.createElement('div');
+  wrap.className = 'instrument-wrap';
+  wrap.innerHTML = `
+    <div class="instrument-header">
+      <div>
+        <h3>4-question wealth survey for ${escapeHtml(c.name)}</h3>
+        <div class="sub">Tick Yes / No for each question as you would in the field. The result panel updates live to show which of the five wealth ranks the household falls into.</div>
+      </div>
+      <span class="instrument-meta">${escapeHtml(bank.local_lang)} + English</span>
+    </div>
+    <div class="instrument-questions" id="instrument-questions"></div>
+    <div class="instrument-result empty" id="instrument-result">
+      <div class="result-rank-badge empty">—</div>
+      <div class="result-text">Answer all four questions to see the household's wealth rank.</div>
+      <div class="result-pattern" id="result-pattern"></div>
+    </div>
+    <div class="instrument-actions">
+      <button class="button" onclick="copyInstrumentText()">Copy as text</button>
+      <button class="button secondary" onclick="downloadInstrumentPdf()">Download as PDF</button>
+      <button class="button secondary" onclick="copyShareLink()">Share link</button>
+    </div>
+  `;
+  container.appendChild(wrap);
+
+  // Cluster lookup: bit-pattern -> cluster + rank + prop
+  const patternIndex = {};
+  if (setData && setData.clusters) {
+    setData.clusters.forEach(cl => {
+      cl.patterns.forEach(p => {
+        const key = (p.values || (p.bits ? p.bits.map(String) : [])).join('');
+        patternIndex[key] = { id: cl.id, rank: cl.wealth_rank, prop: cl.prop_pct };
+      });
+    });
+  }
+
+  // Render question cards
+  const qContainer = document.getElementById('instrument-questions');
+  const answers = [null, null, null, null];  // per-question state
+
+  bank.items.forEach((q, i) => {
+    const card = document.createElement('div');
+    card.className = 'q-card';
+    card.id = `q-card-${i}`;
+    card.innerHTML = `
+      <div class="q-card-text">
+        <div>
+          <span class="q-card-num">Q${i+1}</span>
+          <span class="q-card-en">${escapeHtml(q.en)}</span>
+        </div>
+        <div class="q-card-local">${escapeHtml(q.local)}</div>
+      </div>
+      <div class="yn-toggle" role="radiogroup" aria-label="Q${i+1}">
+        <button data-yn="yes" aria-pressed="false">Yes</button>
+        <button data-yn="no"  aria-pressed="false">No</button>
+      </div>
+    `;
+    qContainer.appendChild(card);
+
+    card.querySelectorAll('button[data-yn]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = btn.dataset.yn;
+        answers[i] = (val === 'yes') ? '1' : '0';
+        // visual state
+        card.dataset.answered = val;
+        card.querySelectorAll('button[data-yn]').forEach(b => {
+          b.classList.remove('yes-active','no-active');
+          b.setAttribute('aria-pressed', 'false');
+        });
+        btn.classList.add(val === 'yes' ? 'yes-active' : 'no-active');
+        btn.setAttribute('aria-pressed', 'true');
+        updateInstrumentResult(answers, patternIndex, c);
+      });
+    });
+  });
+}
+
+function updateInstrumentResult(answers, patternIndex, country) {
+  const resultEl  = document.getElementById('instrument-result');
+  const patternEl = document.getElementById('result-pattern');
+  const allAnswered = answers.every(a => a !== null);
+
+  // Always render the pattern bits with current state
+  patternEl.innerHTML = answers.map(a =>
+    a === null
+      ? `<span class="pattern-bit off" style="background:transparent; border-style:dashed;">?</span>`
+      : `<span class="pattern-bit ${a === '1' ? 'on' : 'off'}">${a}</span>`
+  ).join('');
+
+  if (!allAnswered) {
+    resultEl.className = 'instrument-result empty';
+    resultEl.querySelector('.result-rank-badge').className = 'result-rank-badge empty';
+    resultEl.querySelector('.result-rank-badge').innerHTML = '—';
+    resultEl.querySelector('.result-text').innerHTML = `Answered ${answers.filter(a=>a!==null).length} of ${answers.length}. Tick Yes or No for each question.`;
+    return;
+  }
+
+  const key = answers.join('');
+  const match = patternIndex[key];
+
+  if (match) {
+    resultEl.className = 'instrument-result';
+    const badge = resultEl.querySelector('.result-rank-badge');
+    badge.className = `result-rank-badge rank-${match.rank}`;
+    badge.innerHTML = `${match.rank}`;
+    resultEl.querySelector('.result-text').innerHTML =
+      `<strong>Cluster ${match.id} &middot; Wealth rank ${match.rank} of 5.</strong> ` +
+      `About <strong>${Number(match.prop).toFixed(1)}%</strong> of ${escapeHtml(country.name)} households share this asset pattern.`;
+  } else {
+    resultEl.className = 'instrument-result unmatched';
+    const badge = resultEl.querySelector('.result-rank-badge');
+    badge.className = 'result-rank-badge empty';
+    badge.innerHTML = '∅';
+    resultEl.querySelector('.result-text').innerHTML =
+      `<strong>Pattern not observed in the data.</strong> No household in the ${escapeHtml(country.name)} DHS sample produced this exact answer combination — assignment to a wealth rank is undefined for this pattern.`;
+  }
+}
+
+// IDHS uses 2-letter+4-digit codes that mostly match our DHS CCs, with four
+// exceptions where the 2-letter prefix differs (Burundi, Liberia, Madagascar,
+// Niger). Returns lowercase 2-letter-code + 4-digit-year (e.g. "cm2018").
+function idhsCode(cc) {
+  const cc2map = { BU: 'bi', LB: 'lr', MD: 'mg', NI: 'ne' };
+  const cc2 = cc.slice(0, 2);
+  const yy  = cc.slice(2);
+  const idhs2 = cc2map[cc2] || cc2.toLowerCase();
+  // All our study years are 2011 onwards
+  const yyyy = '20' + yy;
+  return idhs2 + yyyy;
+}
+function idhsHhPdfUrl(cc) {
+  return `https://www.idhsdata.org/idhs/resources/survey_forms_pdf/survey_form_${idhsCode(cc)}_hh.pdf`;
+}
+function idhsHhXmlUrl(cc) {
+  return `https://www.idhsdata.org/idhs-action/source_documents/survey_form_${idhsCode(cc)}_hh_tag.xml`;
+}
+
+function downloadInstrumentPdf() {
+  if (!window.jspdf) { alert('PDF generator not loaded — check your internet connection.'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+
+  const setNum  = document.getElementById('report-set-num').textContent;
+  const country = document.getElementById('report-country-name').textContent;
+  const year    = document.getElementById('report-country-year').textContent;
+  const cards   = document.querySelectorAll('.q-card');
+
+  const margin = 56;
+  const pageW = doc.internal.pageSize.getWidth();
+  const wrap = pageW - margin * 2;
+  let y = margin;
+
+  // Header
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
+  doc.text(`${country} ${year}`, margin, y); y += 22;
+  doc.setFontSize(14);
+  doc.text('4-question wealth survey', margin, y); y += 18;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+  doc.setTextColor(120);
+  doc.text(`EconomicClusters Set ${setNum} · Generated from andy-j-kim.github.io/EcoClustering`, margin, y);
+  y += 12; doc.setDrawColor(200); doc.line(margin, y, pageW - margin, y); y += 24;
+  doc.setTextColor(0);
+
+  // Each question
+  cards.forEach((card, i) => {
+    const en = card.querySelector('.q-card-en').textContent;
+    const local = card.querySelector('.q-card-local').textContent;
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+    doc.text(`Q${i+1}.`, margin, y);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
+    const enLines = doc.splitTextToSize(en, wrap - 28);
+    doc.text(enLines, margin + 28, y);
+    y += enLines.length * 14 + 4;
+
+    doc.setFont('helvetica', 'italic'); doc.setFontSize(10); doc.setTextColor(110);
+    const locLines = doc.splitTextToSize(local, wrap - 28);
+    doc.text(locLines, margin + 28, y);
+    y += locLines.length * 13 + 10;
+    doc.setTextColor(0); doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
+    doc.text('☐ Yes      ☐ No', margin + 28, y);
+    y += 30;
+
+    if (y > doc.internal.pageSize.getHeight() - margin - 80) { doc.addPage(); y = margin; }
+  });
+
+  // Footer
+  y += 8;
+  doc.setDrawColor(200); doc.line(margin, y, pageW - margin, y); y += 18;
+  doc.setFontSize(9); doc.setTextColor(120);
+  const scoring = 'Score: count "Yes" answers as 1 and "No" as 0 to form a 4-digit pattern. Use the country page on andy-j-kim.github.io/EcoClustering to map the pattern to a wealth rank (1=lowest, 5=highest).';
+  doc.text(doc.splitTextToSize(scoring, wrap), margin, y);
+
+  doc.save(`${country.replace(/[^a-z0-9]+/gi,'_')}_${year}_wealth_survey_set${setNum}.pdf`);
+}
+
+function copyShareLink() {
+  const setNum  = document.getElementById('report-set-num').textContent;
+  const country = SHARE_CURRENT_CC;  // set whenever a country bundle is loaded
+  if (!country) { alert('Could not identify current country.'); return; }
+  const base = window.location.href.split('?')[0].split('#')[0];
+  const url  = `${base}?country=${country}&set=${setNum}`;
+  navigator.clipboard.writeText(url).then(() => {
+    alert(`Share link copied:\n\n${url}`);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = url; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    alert(`Share link copied:\n\n${url}`);
+  });
+}
+
+// Holds the CC of the most recently loaded country so the share button knows
+// what to put in the URL.
+let SHARE_CURRENT_CC = null;
+
+function copyInstrumentText() {
+  const setNum = document.getElementById('report-set-num').textContent;
+  const country = document.getElementById('report-country-name').textContent;
+  const year = document.getElementById('report-country-year').textContent;
+  const cards = document.querySelectorAll('.q-card');
+  const lines = [`${country} ${year} — 4-question wealth survey (Set ${setNum})`, ''];
+  cards.forEach((card, i) => {
+    const en = card.querySelector('.q-card-en').textContent;
+    const local = card.querySelector('.q-card-local').textContent;
+    lines.push(`Q${i+1}. ${en}`);
+    lines.push(`     ${local}`);
+    lines.push(`     [ ] Yes    [ ] No`);
+    lines.push('');
+  });
+  const text = lines.join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    alert('Survey instrument copied to clipboard.');
+  }).catch(() => {
+    // Fallback for older browsers
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    alert('Survey instrument copied to clipboard.');
+  });
+}
+
 function renderPatternValues(values, varTypes) {
   return values.map((val, i) => {
     const t = varTypes[i] || 'binary';
@@ -729,6 +1155,36 @@ function openComputeModal() { document.getElementById('compute-modal').classList
 function closeComputeModal() { document.getElementById('compute-modal').classList.remove('show'); }
 
 document.addEventListener('mousemove', (evt) => { if (tooltip.classList.contains('show')) positionTooltip(evt); });
+
+// ===== URL-param routing: ?country=CM18&set=1 =====
+// On page load, if URL params point to a specific country (and optionally set),
+// auto-navigate there. Used by the Share link button.
+async function handleUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  const cc = params.get('country');
+  if (!cc) return;
+  const bundle = await fetchCountryBundle(cc);
+  if (!bundle) {
+    console.warn(`URL param country=${cc} couldn't be loaded`);
+    return;
+  }
+  renderCountry(bundle);
+  showView('country');
+
+  const setRank = params.get('set');
+  if (setRank) {
+    const s = (bundle.topSets || []).find(x => String(x.rank) === setRank);
+    const setData = bundle.sets && bundle.sets[setRank];
+    if (s) {
+      renderReport(bundle, s, setData);
+      showView('report');
+    } else {
+      console.warn(`URL param set=${setRank} not found in ${cc}`);
+    }
+  }
+}
+// Run on load — small delay so the map TopoJSON has a chance to render too.
+setTimeout(handleUrlParams, 100);
 </script>
 
 </body>
