@@ -25,7 +25,7 @@ library(gdtools)
 
 ```{r user-functions}
 #source("./input_files/EC_user_functions.R")
-source("/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubbardlap/grantproposals/Data Science in Africa/Project 1/EcoClustGit/EcoClustering_Project/input_files/EC_user_functions.R")
+source("/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubbardlap/grantproposals/Data Science in Africa/Project 1/EcoClustGit/EcoClustering_Project/input_files/EC_user_functions[aeh].R")
 ```
 
 ```{r set params and paths}
@@ -182,7 +182,12 @@ merged_dhs <- hh %>%
         by.y=c("v001", "v002"), all.y=FALSE)
 
 val_tables <- create_validation_tables(merged_data = merged_dhs)
+
+write_csv(merged_dhs,file="/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubbardlap/grantproposals/Data Science in Africa/Project 1/EcoClustGit/EcoClustering_Project/data/DataforAlan/Cameroon.csv")
 ```
+
+### merged_dhs has all the variables I need for the comparison of our clusters to DHS. "id" is the cluster number.
+
 
 ## a.1) Using Children Deceased (Sorted by proportion of 0%)
 
@@ -307,4 +312,6 @@ if("pritab" %in% names(val_tables)){
   knitr::knit_print(pritab.f)
 }
 ```
+
+## Look at correlation of our cluster and that 
 
