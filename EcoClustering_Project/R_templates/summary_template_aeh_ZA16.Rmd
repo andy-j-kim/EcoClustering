@@ -1,6 +1,6 @@
 ---
 title: "Output For Looking at Our Clusters vs. DHS Clusters"
-subtitle: "Cameroon(CM18)"
+subtitle: "South Africa (ZA16)"
 output: 
   word_document:
     reference_docx: "summaryscript_style.docx"
@@ -30,7 +30,7 @@ source("/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubbardlap/grant
 ```
 
 ```{r set params and paths}
-cy <- "CM18" # country-year code
+cy <- "ZA16" # country-year code
 num_var <- 4 # number of variables used to generate clusters
 num_cluster <- 5 # predetermined number of groups (clusters) made from the variables
 num_results <- 10 # of variable sets to print (default: 10)
@@ -49,8 +49,8 @@ aswpath <- paste0("/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubba
 #hh_path <- "./data/dhs/Cameroon_2018/CMHR71DT/CMHR71FL.DTA"
 #ind_path <- "./data/dhs/Cameroon_2018/CMIR71DT/CMIR71FL.DTA"
 
-hh_path <- "/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubbardlap/grantproposals/Data Science in Africa/Project 1/EcoClustGit/EcoClustering_Project/data/dhs/Cameroon_2018/CMHR71DT/CMHR71FL.DTA"
-ind_path <- "/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubbardlap/grantproposals/Data Science in Africa/Project 1/EcoClustGit/EcoClustering_Project/data/dhs/Cameroon_2018/CMIR71DT/CMIR71FL.DTA"
+hh_path <- "/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubbardlap/grantproposals/Data Science in Africa/Project 1/EcoClustGit/EcoClustering_Project/data/dhs/SouthAfrica_2016/ZAHR71DT/ZAHR71FL.DTA"
+ind_path <-"/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubbardlap/grantproposals/Data Science in Africa/Project 1/EcoClustGit/EcoClustering_Project/data/dhs/SouthAfrica_2016/ZAIR71DT/ZAIR71FL.DTA"
 
 ```
 
@@ -182,9 +182,8 @@ merged_dhs <- hh %>%
         by.x=c("hv001", "hv002"), 
         by.y=c("v001", "v002"), all.y=FALSE)
 
-val_tables <- create_validation_tables(merged_data = merged_dhs)
 ## Write out data for association of DHS cluster and our clusters
-write_csv(merged_dhs,file="/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubbardlap/grantproposals/Data Science in Africa/Project 1/EcoClustGit/EcoClustering_Project/data/DataforAlan/Cameroon.csv")
+write_csv(merged_dhs,file="/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubbardlap/grantproposals/Data Science in Africa/Project 1/EcoClustGit/EcoClustering_Project/data/DataforAlan/SouthAfrica.csv")
 ```
 
 ### merged_dhs has all the variables I need for the comparison of our clusters to DHS. "id" is the cluster number.
