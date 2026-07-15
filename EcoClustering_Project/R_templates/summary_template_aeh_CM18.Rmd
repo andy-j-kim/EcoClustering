@@ -76,7 +76,7 @@ ind_subset <- haven::read_dta(ind_path) %>%
 
 # Assign missing labels to multicat variables
 dhs <- reassign_label(dhs)
-
+library(tibble)
 # Create data dictionary of DHS labels
 dhs_labels <- create_label_df(dhs)
 ```
@@ -182,7 +182,7 @@ merged_dhs <- hh %>%
         by.y=c("v001", "v002"), all.y=FALSE)
 
 val_tables <- create_validation_tables(merged_data = merged_dhs)
-
+## Write out data for association of DHS cluster and our clusters
 write_csv(merged_dhs,file="/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubbardlap/grantproposals/Data Science in Africa/Project 1/EcoClustGit/EcoClustering_Project/data/DataforAlan/Cameroon.csv")
 ```
 
