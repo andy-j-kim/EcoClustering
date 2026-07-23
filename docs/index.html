@@ -191,7 +191,17 @@
     font-size: 0.78rem; color: var(--ink-muted); white-space: nowrap;
     background: var(--surface-2); padding: 4px 10px; border-radius: 999px; font-weight: 500;
   }
-  .instrument-questions { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .instrument-caveat {
+    font-size: 0.8rem; color: #7a5a0b;
+    background: #fbe9c8; border: 1px solid #e8c1a3;
+    padding: 8px 12px; border-radius: 8px;
+    margin-bottom: 12px; line-height: 1.4;
+  }
+  .instrument-caveat.instrument-caveat-soft {
+    color: var(--ink-muted); background: var(--surface-2); border-color: var(--rule);
+  }
+  .instrument-caveat a { color: var(--primary-deep); font-weight: 600; }
+  .instrument-questions { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 4px; }
   .q-card {
     border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px;
     display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center;
@@ -220,6 +230,21 @@
   .yn-toggle button:hover { color: var(--ink); }
   .yn-toggle button.yes-active { background: var(--primary); color: white; }
   .yn-toggle button.no-active  { background: #b8732a; color: white; }
+
+  .multi-toggle {
+    display: inline-flex; flex-wrap: wrap; gap: 6px;
+    max-width: 480px; justify-content: flex-end;
+  }
+  .multi-toggle button {
+    border: 1px solid var(--rule-strong); background: var(--surface);
+    padding: 8px 12px; border-radius: 8px;
+    font-family: 'Inter', sans-serif; font-weight: 500; font-size: 0.82rem;
+    color: var(--ink-soft); cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    line-height: 1.2;
+  }
+  .multi-toggle button:hover { border-color: var(--primary); color: var(--ink); }
+  .multi-toggle button.opt-active { background: var(--primary); color: white; border-color: var(--primary); }
 
   .instrument-result {
     margin-top: 20px; padding: 18px 20px;
@@ -562,7 +587,11 @@ function adaptBundle(b) {
       code: v.code, desc: v.label, pct: v.pct_in_top_sets || 0,
       dist: variableDistDisplay(v)
     })),
-    topSets: (b.top_sets || []).map(s => ({ rank: s.rank, asw: s.asw, vars: s.var_labels })),
+    topSets: (b.top_sets || []).map(s => ({
+      rank: s.rank, asw: s.asw,
+      vars: s.var_labels,
+      varCodes: s.var_codes || []
+    })),
     sets: b.sets || {}
   };
 }
@@ -680,9 +709,12 @@ function renderCountry(c) {
       <td>${s.vars.map(v=>`<span style="background:var(--surface-2); padding:3px 9px; border-radius:999px; font-size:0.82rem; margin-right:4px; display:inline-block; margin-bottom:3px;">${escapeHtml(v)}</span>`).join('')}</td>
     `;
     row.addEventListener('click', () => {
+      // Always navigate — renderReport handles missing cluster data gracefully.
+      // Users can view the survey instrument for any set; cluster config and
+      // validation cards show "pending" notices if per-set data isn't loaded.
       const setData = c.sets && c.sets[String(s.rank)];
-      if (setData) { renderReport(c, s, setData); showView('report'); }
-      else { alert(`Set #${s.rank} (ASW ${s.asw.toFixed(4)}) isn't in the loaded JSON bundle yet. To enable it, increase TOP_N_SETS in export_country_json.R and re-run for ${c.name}.`); }
+      renderReport(c, s, setData);
+      showView('report');
     });
     tbody.appendChild(row);
   });
@@ -742,6 +774,12 @@ function renderReport(c, set, setData) {
   const cfgBody = document.getElementById('cluster-config-body');
   cfgBody.innerHTML = '';
   const sortedClusters = [...clusters].sort((a,b) => b.rank - a.rank);
+  if (sortedClusters.length === 0) {
+    cfgBody.innerHTML = `<tr><td colspan="6" style="padding:24px; text-align:center; color:var(--ink-muted); font-style:italic;">
+      Cluster configuration for Set ${set.rank} isn't in the loaded JSON bundle yet.
+      Increase <code>TOP_N_SETS</code> in <code>export_country_json.R</code> and re-run for ${escapeHtml(c.name)} to populate this table.
+    </td></tr>`;
+  }
   sortedClusters.forEach(cluster => {
     cluster.patterns.forEach((p, pi) => {
       const tr = document.createElement('tr');
@@ -847,60 +885,265 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-// ====== Survey instrument (mock for Cameroon Set 1 only) =====================
-// Hand-written question bank keyed by (CC -> set rank -> variable label).
-// In production this will come from the per-country JSON bundle (Phase 1/2
-// of the IDHS extraction work). For the mock, only Cameroon Set 1 is wired.
-const SURVEY_QUESTIONS = {
-  "CM18": {
-    "1": {
-      local_lang: "French",
-      questions: {
-        "has television":      { en: "Does your household have a television?",          local: "Votre ménage possède-t-il un téléviseur ?" },
-        "has mobile telephone":{ en: "Does any member of your household have a mobile telephone?", local: "Un membre de votre ménage possède-t-il un téléphone portable ?" },
-        "mixer":               { en: "Does your household have a mixer?",                local: "Votre ménage possède-t-il un mixeur ?" },
-        "cable":               { en: "Does your household have a cable subscription?",   local: "Votre ménage a-t-il un abonnement au câble ?" }
-      }
-    }
+// ====== Survey instrument question bank ======================================
+// Templates are keyed by DHS variable code. Two tiers of lookup:
+//   1. STANDARD_TEMPLATES:  standardized hv-codes + renamed categoricals; the
+//                           same across all countries.
+//   2. COUNTRY_TEMPLATES:   country-specific overrides for sh1xx codes (which
+//                           denote different variables per country).
+// Any set that uses only covered codes renders as a full instrument in each
+// country's primary DHS survey language. Uncovered codes auto-generate from
+// the variable label (English only, with a translation-pending marker).
+//
+// Local-language translations are provided as a reference; verify against the
+// linked original-language IDHS survey PDF for authoritative wording.
+const COUNTRY_SURVEY_LANG = {
+  // French-primary DHS surveys
+  "BF21":"French","BJ17":"French","BU16":"French","CD13":"French","CI11":"French",
+  "CM18":"French","GA12":"French","GN18":"French","KM12":"French","MD21":"French",
+  "ML18":"French","NI12":"French","SN19":"French","TD14":"French","TG13":"French",
+  // Portuguese-primary
+  "AO15":"Portuguese","MZ11":"Portuguese",
+  // English-primary (or English-first for multilingual)
+  "ET19":"English","GH22":"English","GM19":"English","KE22":"English","LB19":"English",
+  "LS14":"English","MW15":"English","NG18":"English","NM13":"English","RW19":"English",
+  "SL19":"English","TZ22":"English","UG16":"English","ZA16":"English","ZM18":"English",
+  "ZW15":"English"
+};
+
+// Standard templates for DHS hv-codes + renamed categoricals. Each template
+// carries English + French + Portuguese (English filled where a translation
+// isn't provided).
+const STANDARD_TEMPLATES = {
+  "hv206": { type:"binary", en:"Does your household have electricity?",             fr:"Votre ménage a-t-il l'électricité ?",              pt:"O seu agregado familiar tem electricidade?" },
+  "hv207": { type:"binary", en:"Does your household have a radio?",                 fr:"Votre ménage possède-t-il une radio ?",            pt:"O seu agregado familiar possui um rádio?" },
+  "hv208": { type:"binary", en:"Does your household have a television?",            fr:"Votre ménage possède-t-il un téléviseur ?",        pt:"O seu agregado familiar possui uma televisão?" },
+  "hv209": { type:"binary", en:"Does your household have a refrigerator?",          fr:"Votre ménage possède-t-il un réfrigérateur ?",     pt:"O seu agregado familiar possui um frigorífico?" },
+  "hv210": { type:"binary", en:"Does any member of your household have a bicycle?", fr:"Un membre de votre ménage possède-t-il une bicyclette ?", pt:"Algum membro do seu agregado familiar possui uma bicicleta?" },
+  "hv211": { type:"binary", en:"Does any member of your household have a motorcycle or scooter?", fr:"Un membre de votre ménage possède-t-il une motocyclette ou un scooter ?", pt:"Algum membro do seu agregado familiar possui uma motorizada ou lambreta?" },
+  "hv212": { type:"binary", en:"Does any member of your household have a car or truck?", fr:"Un membre de votre ménage possède-t-il une voiture ou un camion ?", pt:"Algum membro do seu agregado familiar possui um carro ou camião?" },
+  "hv221": { type:"binary", en:"Does your household have a landline telephone?",    fr:"Votre ménage possède-t-il un téléphone fixe ?",     pt:"O seu agregado familiar possui um telefone fixo?" },
+  "hv227": { type:"binary", en:"Does your household have a mosquito bed net for sleeping?", fr:"Votre ménage possède-t-il une moustiquaire pour dormir ?", pt:"O seu agregado familiar possui uma rede mosquiteira para dormir?" },
+  "hv237": { type:"binary", en:"Do you do anything to the water to make it safer to drink?", fr:"Faites-vous quelque chose à l'eau pour la rendre plus sûre à boire ?", pt:"Faz alguma coisa à água para a tornar mais segura para beber?" },
+  "hv237a":{ type:"binary", en:"Do you usually boil the water to make it safer to drink?", fr:"Faites-vous généralement bouillir l'eau pour la rendre plus sûre à boire ?", pt:"Costuma ferver a água para a tornar mais segura para beber?" },
+  "hv243a":{ type:"binary", en:"Does any member of your household have a mobile telephone?", fr:"Un membre de votre ménage possède-t-il un téléphone portable ?", pt:"Algum membro do seu agregado familiar possui um telemóvel?" },
+  "hv243b":{ type:"binary", en:"Does any member of your household have a watch?",   fr:"Un membre de votre ménage possède-t-il une montre ?", pt:"Algum membro do seu agregado familiar possui um relógio?" },
+  "hv243c":{ type:"binary", en:"Does any member of your household have an animal-drawn cart?", fr:"Un membre de votre ménage possède-t-il une charrette à traction animale ?", pt:"Algum membro do seu agregado familiar possui uma carroça de tração animal?" },
+  "hv243e":{ type:"binary", en:"Does any member of your household have a computer?", fr:"Un membre de votre ménage possède-t-il un ordinateur ?", pt:"Algum membro do seu agregado familiar possui um computador?" },
+  "hv244": { type:"binary", en:"Does any member of your household own land usable for agriculture?", fr:"Un membre de votre ménage possède-t-il des terres utilisables pour l'agriculture ?", pt:"Algum membro do seu agregado familiar possui terras utilizáveis para agricultura?" },
+  "hv246": { type:"binary", en:"Does this household own any livestock, herds, other farm animals, or poultry?", fr:"Ce ménage possède-t-il du bétail, des troupeaux, d'autres animaux de ferme ou de la volaille ?", pt:"Este agregado familiar possui gado, rebanhos, outros animais de criação ou aves?" },
+  "hv247": { type:"binary", en:"Does any member of your household have a bank account?", fr:"Un membre de votre ménage a-t-il un compte bancaire ?", pt:"Algum membro do seu agregado familiar tem uma conta bancária?" },
+  "hv253": { type:"binary", en:"Has anyone sprayed the interior walls of your dwelling against mosquitoes in the past 6 months?", fr:"Quelqu'un a-t-il pulvérisé les murs intérieurs de votre logement contre les moustiques au cours des 6 derniers mois ?", pt:"Alguém pulverizou as paredes interiores da sua habitação contra mosquitos nos últimos 6 meses?" },
+  "hv263": { type:"binary", en:"Do you or anyone in your household use a mobile phone to send or receive money?", fr:"Vous ou quelqu'un de votre ménage utilisez-vous un téléphone portable pour envoyer ou recevoir de l'argent ?", pt:"O senhor(a) ou alguém do seu agregado familiar usa um telemóvel para enviar ou receber dinheiro?" },
+
+  // Categorical (renamed) structural variables
+  "roof": {
+    type:"categorical",
+    en:"What is the main material of the roof of the dwelling?",
+    fr:"Quel est le matériau principal du toit de l'habitation ?",
+    pt:"Qual é o material principal do telhado da habitação?",
+    options: [
+      { value:"finished",    en:"Finished (metal, wood, tile, cement)",    fr:"Fini (métal, bois, tuile, ciment)",    pt:"Acabado (metal, madeira, telha, cimento)" },
+      { value:"rudimentary", en:"Rudimentary (bamboo, planks, cardboard)", fr:"Rudimentaire (bambou, planches, carton)", pt:"Rudimentar (bambu, tábuas, cartão)" },
+      { value:"natural",     en:"Natural (thatch, palm leaf, sod)",        fr:"Naturel (chaume, feuilles de palme)",  pt:"Natural (colmo, folha de palmeira, relva)" },
+      { value:"other",       en:"Other",                                    fr:"Autre",                                pt:"Outro" }
+    ]
+  },
+  "floor": {
+    type:"categorical",
+    en:"What is the main material of the floor of the dwelling?",
+    fr:"Quel est le matériau principal du sol de l'habitation ?",
+    pt:"Qual é o material principal do piso da habitação?",
+    options: [
+      { value:"finished",    en:"Finished (tile, cement, parquet, carpet)", fr:"Fini (tuile, ciment, parquet, tapis)", pt:"Acabado (ladrilho, cimento, parquet, tapete)" },
+      { value:"rudimentary", en:"Rudimentary (wood planks, bamboo)",        fr:"Rudimentaire (planches, bambou)",       pt:"Rudimentar (tábuas, bambu)" },
+      { value:"natural",     en:"Natural (earth, sand, dung)",              fr:"Naturel (terre, sable, bouse)",          pt:"Natural (terra, areia, esterco)" },
+      { value:"other",       en:"Other",                                     fr:"Autre",                                  pt:"Outro" }
+    ]
+  },
+  "wall": {
+    type:"categorical",
+    en:"What is the main material of the exterior walls of the dwelling?",
+    fr:"Quel est le matériau principal des murs extérieurs de l'habitation ?",
+    pt:"Qual é o material principal das paredes exteriores da habitação?",
+    options: [
+      { value:"finished",    en:"Finished (cement, stone, bricks, blocks)",  fr:"Fini (ciment, pierre, briques, blocs)", pt:"Acabado (cimento, pedra, tijolos, blocos)" },
+      { value:"rudimentary", en:"Rudimentary (bamboo w/ mud, plywood, adobe)", fr:"Rudimentaire (bambou/boue, contreplaqué, adobe)", pt:"Rudimentar (bambu com barro, contraplacado, adobe)" },
+      { value:"natural",     en:"Natural (cane, palm, dirt)",                fr:"Naturel (canne, palme, terre)",          pt:"Natural (cana, palmeira, terra)" },
+      { value:"other",       en:"Other",                                      fr:"Autre",                                  pt:"Outro" }
+    ]
+  },
+  "water": {
+    type:"categorical",
+    en:"What is the main source of drinking water for members of your household?",
+    fr:"Quelle est la principale source d'eau potable des membres de votre ménage ?",
+    pt:"Qual é a principal fonte de água potável para os membros do seu agregado familiar?",
+    options: [
+      { value:"pipe_dwel",    en:"Piped into dwelling",     fr:"Robinet dans le logement",  pt:"Canalizada para a habitação" },
+      { value:"pipe_yard",    en:"Piped to yard/plot",      fr:"Robinet dans la cour",       pt:"Canalizada para o quintal" },
+      { value:"pipe_neighbor",en:"Piped to neighbor",       fr:"Robinet chez le voisin",     pt:"Canalizada para o vizinho" },
+      { value:"pipe_public",  en:"Public tap / standpipe",  fr:"Robinet public",             pt:"Torneira pública" },
+      { value:"well",         en:"Well (tube, dug, borehole)", fr:"Puits (tube, creusé, forage)", pt:"Poço (tubular, cavado, furo)" },
+      { value:"surface",      en:"Surface water (spring, river, rainwater)", fr:"Eau de surface (source, rivière, pluie)", pt:"Água de superfície (nascente, rio, chuva)" },
+      { value:"other",        en:"Other",                    fr:"Autre",                       pt:"Outro" }
+    ]
+  },
+  "toilet": {
+    type:"categorical",
+    en:"What kind of toilet facility do members of your household usually use?",
+    fr:"Quel type de toilettes les membres de votre ménage utilisent-ils habituellement ?",
+    pt:"Que tipo de instalação sanitária os membros do seu agregado familiar costumam usar?",
+    options: [
+      { value:"flush",  en:"Flush toilet",                fr:"Toilettes à chasse",           pt:"Autoclismo" },
+      { value:"pitlat", en:"Pit latrine",                 fr:"Latrines à fosse",             pt:"Latrina de fossa" },
+      { value:"none",   en:"No facility / bush / field",  fr:"Aucune installation / brousse", pt:"Nenhuma instalação / mato" },
+      { value:"other",  en:"Other",                       fr:"Autre",                         pt:"Outro" }
+    ]
+  },
+  "cookfuel": {
+    type:"categorical",
+    en:"What type of fuel does your household mainly use for cooking?",
+    fr:"Quel type de combustible votre ménage utilise-t-il principalement pour cuisiner ?",
+    pt:"Que tipo de combustível o seu agregado familiar usa principalmente para cozinhar?",
+    options: [
+      { value:"electricity", en:"Electricity",           fr:"Électricité",                pt:"Electricidade" },
+      { value:"gas",         en:"Gas (LPG, natural)",    fr:"Gaz (GPL, naturel)",         pt:"Gás (GLP, natural)" },
+      { value:"charcoal",    en:"Charcoal / coal",       fr:"Charbon de bois / charbon",  pt:"Carvão vegetal / carvão" },
+      { value:"wood",        en:"Wood / straw / dung",   fr:"Bois / paille / bouse",      pt:"Lenha / palha / esterco" },
+      { value:"other",       en:"Other",                 fr:"Autre",                      pt:"Outro" }
+    ]
   }
 };
 
-function lookupQuestions(cc, setRank, setVars) {
-  const bank = SURVEY_QUESTIONS[cc] && SURVEY_QUESTIONS[cc][String(setRank)];
-  if (!bank) return null;
-  const items = setVars.map(v => bank.questions[v] || null);
-  if (items.some(x => x == null)) return null;
-  return { local_lang: bank.local_lang, items };
+// Country-specific templates for sh1xx codes (which have different meanings
+// per country). Same schema as STANDARD_TEMPLATES entries.
+const COUNTRY_TEMPLATES = {
+  "CM18": {
+    "sh121m": { type:"binary", en:"Does your household have a mixer?",                       fr:"Votre ménage possède-t-il un mixeur ?" },
+    "sh121o": { type:"binary", en:"Does your household have a cable subscription?",          fr:"Votre ménage a-t-il un abonnement au câble ?" },
+    "sh122h": { type:"binary", en:"Does any member of your household have a laptop computer?", fr:"Un membre de votre ménage possède-t-il un ordinateur portable ?" }
+  },
+  "NG18": {
+    "sh121h": { type:"binary", en:"Does your household have a chair?" },
+    "sh121m": { type:"binary", en:"Does your household have an electric iron?" },
+    "sh121n": { type:"binary", en:"Does your household have a generator?" },
+    "sh121o": { type:"binary", en:"Does your household have a fan?" }
+  },
+  "BF21": {
+    "sh132h": { type:"binary", en:"Does your household have a wardrobe or bookcase?",         fr:"Votre ménage possède-t-il une armoire ou une bibliothèque ?" },
+    "sh133g": { type:"binary", en:"Does your household have a plow?",                          fr:"Votre ménage possède-t-il une charrue ?" }
+  },
+  "GH22": {
+    "sh132g": { type:"binary", en:"Does your household have a freezer?" },
+    "sh132n": { type:"binary", en:"Does your household have a table?" },
+    "sh132o": { type:"binary", en:"Does your household have a chair?" }
+  },
+  "KE22": {
+    "sh132h": { type:"binary", en:"Does your household have a table?" },
+    "sh132i": { type:"binary", en:"Does your household have a chair?" },
+    "sh132j": { type:"binary", en:"Does your household have a sofa?" },
+    "sh132m": { type:"binary", en:"Does your household have a clock?" },
+    "sh132o": { type:"binary", en:"Does your household have a DVD player?" }
+  },
+  "ZA16": {
+    "sh121g": { type:"binary", en:"Does your household have a vacuum cleaner or floor polisher?" },
+    "sh121h": { type:"binary", en:"Does your household have a microwave oven?" },
+    "sh121i": { type:"binary", en:"Does your household have an electric or gas stove?" },
+    "sh121j": { type:"binary", en:"Does your household have a washing machine?" }
+  },
+  "UG16": {
+    "sh121g": { type:"binary", en:"Does your household have a cassette, CD, or DVD player?" },
+    "sh121j": { type:"binary", en:"Does your household have a sofa set?" },
+    "sh121k": { type:"binary", en:"Does your household have a bed?" },
+    "sh125":  { type:"binary", en:"Has anyone sprayed the interior walls of your dwelling in the past 6 months?" }
+  },
+  "TD14": {
+    "sh110j": { type:"binary", en:"Does your household have beds?",                            fr:"Votre ménage possède-t-il des lits ?" },
+    "sh110k": { type:"binary", en:"Does your household have lamps?",                           fr:"Votre ménage possède-t-il des lampes ?" }
+  },
+  "SN19": {
+    "sh121e": { type:"binary", en:"Is there a canal near your household?",                     fr:"Y a-t-il un canal près de votre ménage ?" },
+    "sh126a": { type:"binary", en:"Do the windows of your dwelling have grids to prevent mosquitoes?", fr:"Les fenêtres de votre logement ont-elles des grilles pour empêcher les moustiques ?" }
+  },
+  "AO15": {
+    "sh121g": { type:"binary", en:"Does your household have internet access?",                                                                                    pt:"O seu agregado familiar tem acesso à internet?" }
+  }
+};
+
+const LANG_KEY = { English: "en", French: "fr", Portuguese: "pt" };
+
+// Auto-generate a fallback question from the variable label (English only).
+// Used when no template matches — covers uncommon sh1xx codes gracefully.
+function autoGenTemplate(label) {
+  const cleaned = String(label || "unknown asset")
+    .replace(/^(household )?has (a |an )?/i, "")
+    .replace(/^owns /i, "")
+    .trim();
+  const article = /^[aeiou]/i.test(cleaned) ? "an " : "a ";
+  return { type:"binary", en:`Does your household have ${article}${cleaned}?`, _autogen:true };
 }
+
+function lookupQuestions(cc, varCodes, varLabels) {
+  const lang = COUNTRY_SURVEY_LANG[cc] || "English";
+  const langKey = LANG_KEY[lang];
+  const items = varCodes.map((code, i) => {
+    // Priority: country-specific override → standard → auto-generated fallback
+    const template = (COUNTRY_TEMPLATES[cc] && COUNTRY_TEMPLATES[cc][code])
+                  || STANDARD_TEMPLATES[code]
+                  || autoGenTemplate(varLabels[i]);
+    const item = { type: template.type, en: template.en, _autogen: !!template._autogen };
+    // Local-language text: use the language-specific field if present, else fall back to English
+    if (lang !== "English") {
+      item.local = template[langKey] || null;  // null = translation pending
+    }
+    if (template.type === "categorical") {
+      item.options = template.options.map(opt => ({
+        value: opt.value,
+        en: opt.en,
+        local: (lang !== "English") ? (opt[langKey] || opt.en) : null
+      }));
+    }
+    return item;
+  });
+  return { language: lang, items, has_autogen: items.some(x => x._autogen) };
+}
+
+// Holds the currently rendered instrument so copy/PDF/share can read it
+let CURRENT_INSTRUMENT = null;
 
 function renderSurveyInstrument(c, set, setData) {
   const container = document.getElementById('instrument-container');
   container.innerHTML = '';
-  const bank = lookupQuestions(c.cc, set.rank, set.vars);
+  CURRENT_INSTRUMENT = null;
 
-  if (!bank) {
-    container.innerHTML = `
-      <div class="instrument-pending">
-        <strong style="color:var(--ink);">Question text not yet wired for this set.</strong>
-        Survey questions are being added per country as we extract them from the IDHS source documents.
-        For now, see the country's
-        <a href="https://www.idhsdata.org/idhs-action/source_documents/survey_form_cm2018_hh_tag.xml" target="_blank" rel="noopener">English HH survey form</a>
-        for question text in this country's actual survey.
-      </div>`;
-    return;
-  }
+  const varCodes = set.varCodes || set.vars;  // fallback to labels if no codes
+  const bank = lookupQuestions(c.cc, varCodes, set.vars);
+  if (!bank) return;
 
-  // Build the form
+  // Store for export functions
+  CURRENT_INSTRUMENT = { bank, country: c, setRank: set.rank };
+  const isBilingual = bank.language !== "English";
+  const metaText = isBilingual ? `${bank.language} + English` : `English`;
+
+  // Any auto-generated (fallback) items? Show a soft caveat.
+  const autoNote = bank.has_autogen
+    ? `<div class="instrument-caveat">Some questions were auto-generated from variable labels because their standardized wording isn't yet in the template bank. See the country's <a href="${idhsHhXmlUrl(c.cc)}" target="_blank" rel="noopener">official English survey form</a> for exact phrasing.</div>`
+    : '';
+  const langNote = isBilingual
+    ? `<div class="instrument-caveat instrument-caveat-soft">Local-language wording is a reference translation. Verify against the linked <a href="${idhsHhPdfUrl(c.cc)}" target="_blank" rel="noopener">original-language survey PDF</a> before deploying.</div>`
+    : '';
+
   const wrap = document.createElement('div');
   wrap.className = 'instrument-wrap';
   wrap.innerHTML = `
     <div class="instrument-header">
       <div>
         <h3>4-question wealth survey for ${escapeHtml(c.name)}</h3>
-        <div class="sub">Tick Yes / No for each question as you would in the field. The result panel updates live to show which of the five wealth ranks the household falls into.</div>
+        <div class="sub">Answer each question as you would in the field. The result panel updates live to show which of the five wealth ranks the household falls into.</div>
       </div>
-      <span class="instrument-meta">${escapeHtml(bank.local_lang)} + English</span>
+      <span class="instrument-meta">${escapeHtml(metaText)}</span>
     </div>
+    ${autoNote}${langNote}
     <div class="instrument-questions" id="instrument-questions"></div>
     <div class="instrument-result empty" id="instrument-result">
       <div class="result-rank-badge empty">—</div>
@@ -915,55 +1158,89 @@ function renderSurveyInstrument(c, set, setData) {
   `;
   container.appendChild(wrap);
 
-  // Cluster lookup: bit-pattern -> cluster + rank + prop
+  // Cluster pattern lookup: joined-values-string -> cluster meta
   const patternIndex = {};
   if (setData && setData.clusters) {
     setData.clusters.forEach(cl => {
       cl.patterns.forEach(p => {
-        const key = (p.values || (p.bits ? p.bits.map(String) : [])).join('');
+        const key = (p.values || (p.bits ? p.bits.map(String) : [])).join('|');
         patternIndex[key] = { id: cl.id, rank: cl.wealth_rank, prop: cl.prop_pct };
       });
     });
   }
 
-  // Render question cards
+  // Render each question card, per-type
   const qContainer = document.getElementById('instrument-questions');
-  const answers = [null, null, null, null];  // per-question state
+  const answers = new Array(bank.items.length).fill(null);
 
   bank.items.forEach((q, i) => {
     const card = document.createElement('div');
     card.className = 'q-card';
     card.id = `q-card-${i}`;
-    card.innerHTML = `
+
+    const localLine = q.local
+      ? `<div class="q-card-local">${escapeHtml(q.local)}</div>`
+      : (isBilingual ? `<div class="q-card-local" style="opacity:0.55;">— translation pending —</div>` : '');
+    const textHtml = `
       <div class="q-card-text">
         <div>
           <span class="q-card-num">Q${i+1}</span>
           <span class="q-card-en">${escapeHtml(q.en)}</span>
         </div>
-        <div class="q-card-local">${escapeHtml(q.local)}</div>
-      </div>
-      <div class="yn-toggle" role="radiogroup" aria-label="Q${i+1}">
+        ${localLine}
+      </div>`;
+
+    let controlHtml = '';
+    if (q.type === 'categorical') {
+      controlHtml = `<div class="multi-toggle" role="radiogroup" aria-label="Q${i+1}">
+        ${q.options.map(opt => `
+          <button data-val="${escapeHtml(opt.value)}" aria-pressed="false" title="${escapeHtml(opt.local || opt.en)}">
+            ${escapeHtml(opt.en)}
+          </button>
+        `).join('')}
+      </div>`;
+    } else {
+      controlHtml = `<div class="yn-toggle" role="radiogroup" aria-label="Q${i+1}">
         <button data-yn="yes" aria-pressed="false">Yes</button>
         <button data-yn="no"  aria-pressed="false">No</button>
-      </div>
-    `;
+      </div>`;
+    }
+
+    card.innerHTML = textHtml + controlHtml;
     qContainer.appendChild(card);
 
-    card.querySelectorAll('button[data-yn]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const val = btn.dataset.yn;
-        answers[i] = (val === 'yes') ? '1' : '0';
-        // visual state
-        card.dataset.answered = val;
-        card.querySelectorAll('button[data-yn]').forEach(b => {
-          b.classList.remove('yes-active','no-active');
-          b.setAttribute('aria-pressed', 'false');
+    // Wire click handlers
+    if (q.type === 'categorical') {
+      card.querySelectorAll('button[data-val]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const val = btn.dataset.val;
+          answers[i] = val;
+          card.dataset.answered = "yes";
+          card.querySelectorAll('button[data-val]').forEach(b => {
+            b.classList.remove('opt-active');
+            b.setAttribute('aria-pressed', 'false');
+          });
+          btn.classList.add('opt-active');
+          btn.setAttribute('aria-pressed', 'true');
+          updateInstrumentResult(answers, patternIndex, c);
         });
-        btn.classList.add(val === 'yes' ? 'yes-active' : 'no-active');
-        btn.setAttribute('aria-pressed', 'true');
-        updateInstrumentResult(answers, patternIndex, c);
       });
-    });
+    } else {
+      card.querySelectorAll('button[data-yn]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const val = btn.dataset.yn;
+          answers[i] = (val === 'yes') ? '1' : '0';
+          card.dataset.answered = val;
+          card.querySelectorAll('button[data-yn]').forEach(b => {
+            b.classList.remove('yes-active','no-active');
+            b.setAttribute('aria-pressed', 'false');
+          });
+          btn.classList.add(val === 'yes' ? 'yes-active' : 'no-active');
+          btn.setAttribute('aria-pressed', 'true');
+          updateInstrumentResult(answers, patternIndex, c);
+        });
+      });
+    }
   });
 }
 
@@ -972,22 +1249,25 @@ function updateInstrumentResult(answers, patternIndex, country) {
   const patternEl = document.getElementById('result-pattern');
   const allAnswered = answers.every(a => a !== null);
 
-  // Always render the pattern bits with current state
-  patternEl.innerHTML = answers.map(a =>
-    a === null
-      ? `<span class="pattern-bit off" style="background:transparent; border-style:dashed;">?</span>`
-      : `<span class="pattern-bit ${a === '1' ? 'on' : 'off'}">${a}</span>`
-  ).join('');
+  // Render the answer pattern — bits for 0/1, category chips for text values
+  patternEl.innerHTML = answers.map(a => {
+    if (a === null)
+      return `<span class="pattern-bit off" style="background:transparent; border-style:dashed;">?</span>`;
+    if (a === '0' || a === '1')
+      return `<span class="pattern-bit ${a === '1' ? 'on' : 'off'}">${a}</span>`;
+    // text categorical value
+    return `<span class="pattern-cat" data-level="${escapeHtml(a)}">${escapeHtml(a)}</span>`;
+  }).join('');
 
   if (!allAnswered) {
     resultEl.className = 'instrument-result empty';
     resultEl.querySelector('.result-rank-badge').className = 'result-rank-badge empty';
     resultEl.querySelector('.result-rank-badge').innerHTML = '—';
-    resultEl.querySelector('.result-text').innerHTML = `Answered ${answers.filter(a=>a!==null).length} of ${answers.length}. Tick Yes or No for each question.`;
+    resultEl.querySelector('.result-text').innerHTML = `Answered ${answers.filter(a=>a!==null).length} of ${answers.length}. Answer each question above to see the wealth rank.`;
     return;
   }
 
-  const key = answers.join('');
+  const key = answers.join('|');
   const match = patternIndex[key];
 
   if (match) {
@@ -1029,61 +1309,77 @@ function idhsHhXmlUrl(cc) {
 
 function downloadInstrumentPdf() {
   if (!window.jspdf) { alert('PDF generator not loaded — check your internet connection.'); return; }
+  if (!CURRENT_INSTRUMENT) { alert('No survey instrument to export.'); return; }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
 
-  const setNum  = document.getElementById('report-set-num').textContent;
-  const country = document.getElementById('report-country-name').textContent;
-  const year    = document.getElementById('report-country-year').textContent;
-  const cards   = document.querySelectorAll('.q-card');
+  const { bank, country, setRank } = CURRENT_INSTRUMENT;
 
   const margin = 56;
   const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
   const wrap = pageW - margin * 2;
   let y = margin;
 
+  const ensureRoom = (needed) => {
+    if (y + needed > pageH - margin - 40) { doc.addPage(); y = margin; }
+  };
+
   // Header
   doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
-  doc.text(`${country} ${year}`, margin, y); y += 22;
+  doc.text(`${country.name} ${country.year}`, margin, y); y += 22;
   doc.setFontSize(14);
   doc.text('4-question wealth survey', margin, y); y += 18;
   doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
   doc.setTextColor(120);
-  doc.text(`EconomicClusters Set ${setNum} · Generated from andy-j-kim.github.io/EcoClustering`, margin, y);
+  doc.text(`EconomicClusters Set ${setRank} · Generated from andy-j-kim.github.io/EcoClustering`, margin, y);
   y += 12; doc.setDrawColor(200); doc.line(margin, y, pageW - margin, y); y += 24;
   doc.setTextColor(0);
 
   // Each question
-  cards.forEach((card, i) => {
-    const en = card.querySelector('.q-card-en').textContent;
-    const local = card.querySelector('.q-card-local').textContent;
+  bank.items.forEach((q, i) => {
+    ensureRoom(90);
 
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     doc.text(`Q${i+1}.`, margin, y);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
-    const enLines = doc.splitTextToSize(en, wrap - 28);
+    const enLines = doc.splitTextToSize(q.en, wrap - 28);
     doc.text(enLines, margin + 28, y);
     y += enLines.length * 14 + 4;
 
-    doc.setFont('helvetica', 'italic'); doc.setFontSize(10); doc.setTextColor(110);
-    const locLines = doc.splitTextToSize(local, wrap - 28);
-    doc.text(locLines, margin + 28, y);
-    y += locLines.length * 13 + 10;
+    if (q.local) {
+      doc.setFont('helvetica', 'italic'); doc.setFontSize(10); doc.setTextColor(110);
+      const locLines = doc.splitTextToSize(q.local, wrap - 28);
+      doc.text(locLines, margin + 28, y);
+      y += locLines.length * 13 + 10;
+    } else {
+      y += 4;
+    }
     doc.setTextColor(0); doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
-    doc.text('☐ Yes      ☐ No', margin + 28, y);
-    y += 30;
 
-    if (y > doc.internal.pageSize.getHeight() - margin - 80) { doc.addPage(); y = margin; }
+    if (q.type === 'categorical') {
+      q.options.forEach(opt => {
+        ensureRoom(24);
+        const line = opt.local ? `☐  ${opt.en}   /   ${opt.local}` : `☐  ${opt.en}`;
+        doc.text(line, margin + 28, y);
+        y += 16;
+      });
+      y += 12;
+    } else {
+      doc.text('☐ Yes      ☐ No', margin + 28, y);
+      y += 24;
+    }
   });
 
   // Footer
+  ensureRoom(60);
   y += 8;
   doc.setDrawColor(200); doc.line(margin, y, pageW - margin, y); y += 18;
   doc.setFontSize(9); doc.setTextColor(120);
-  const scoring = 'Score: count "Yes" answers as 1 and "No" as 0 to form a 4-digit pattern. Use the country page on andy-j-kim.github.io/EcoClustering to map the pattern to a wealth rank (1=lowest, 5=highest).';
+  const scoring = 'Score each household by their answer pattern and look up their wealth rank (1=lowest, 5=highest) on the country page at andy-j-kim.github.io/EcoClustering.';
   doc.text(doc.splitTextToSize(scoring, wrap), margin, y);
 
-  doc.save(`${country.replace(/[^a-z0-9]+/gi,'_')}_${year}_wealth_survey_set${setNum}.pdf`);
+  doc.save(`${country.name.replace(/[^a-z0-9]+/gi,'_')}_${country.year}_wealth_survey_set${setRank}.pdf`);
 }
 
 function copyShareLink() {
@@ -1107,24 +1403,25 @@ function copyShareLink() {
 let SHARE_CURRENT_CC = null;
 
 function copyInstrumentText() {
-  const setNum = document.getElementById('report-set-num').textContent;
-  const country = document.getElementById('report-country-name').textContent;
-  const year = document.getElementById('report-country-year').textContent;
-  const cards = document.querySelectorAll('.q-card');
-  const lines = [`${country} ${year} — 4-question wealth survey (Set ${setNum})`, ''];
-  cards.forEach((card, i) => {
-    const en = card.querySelector('.q-card-en').textContent;
-    const local = card.querySelector('.q-card-local').textContent;
-    lines.push(`Q${i+1}. ${en}`);
-    lines.push(`     ${local}`);
-    lines.push(`     [ ] Yes    [ ] No`);
+  if (!CURRENT_INSTRUMENT) { alert('No survey instrument to copy.'); return; }
+  const { bank, country, setRank } = CURRENT_INSTRUMENT;
+  const lines = [`${country.name} ${country.year} — 4-question wealth survey (Set ${setRank})`, ''];
+  bank.items.forEach((q, i) => {
+    lines.push(`Q${i+1}. ${q.en}`);
+    if (q.local) lines.push(`     ${q.local}`);
+    if (q.type === 'categorical') {
+      q.options.forEach(opt => {
+        lines.push(opt.local ? `     [ ] ${opt.en}  /  ${opt.local}` : `     [ ] ${opt.en}`);
+      });
+    } else {
+      lines.push(`     [ ] Yes    [ ] No`);
+    }
     lines.push('');
   });
   const text = lines.join('\n');
   navigator.clipboard.writeText(text).then(() => {
     alert('Survey instrument copied to clipboard.');
   }).catch(() => {
-    // Fallback for older browsers
     const ta = document.createElement('textarea');
     ta.value = text; document.body.appendChild(ta); ta.select();
     document.execCommand('copy'); document.body.removeChild(ta);
