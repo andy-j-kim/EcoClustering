@@ -46,11 +46,11 @@ dhspath <- paste0("/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubba
 aswpath <- paste0("/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubbardlap/grantproposals/Data Science in Africa/Project 1/EcoClustGit/EcoClustering_Project/data/asw/ASW_", cy, "_", num_var, "cluster.rds")
 
 # Paths to raw DHS files here
-#hh_path <- "./data/dhs/Cameroon_2018/CMHR71DT/CMHR71FL.DTA"
-#ind_path <- "./data/dhs/Cameroon_2018/CMIR71DT/CMIR71FL.DTA"
 
-hh_path <- "/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubbardlap/grantproposals/Data Science in Africa/Project 1/EcoClustGit/EcoClustering_Project/data/dhs/SouthAfrica_2016/ZAHR71DT/ZAHR71FL.DTA"
-ind_path <-"/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubbardlap/grantproposals/Data Science in Africa/Project 1/EcoClustGit/EcoClustering_Project/data/dhs/SouthAfrica_2016/ZAIR71DT/ZAIR71FL.DTA"
+hh_path <- "/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubbardlap/grantproposals/Data Science in Africa/Project 1/EcoClustGit/EcoClustering_Project/data/dhs/Uganda_2016/UGHR7BDT/UGHR7BFL.DTA"
+
+
+ind_path <-"/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubbardlap/grantproposals/Data Science in Africa/Project 1/EcoClustGit/EcoClustering_Project/data/dhs/Uganda_2016/UGIR7BDT/UGIR7BFL.DTA"
 
 ```
 
@@ -67,12 +67,18 @@ hh <- haven::read_dta(hh_path) %>%
   # filter(any steps taken in the cleaning_CY.Rmd file)
   mutate(wt = ifelse(hv012 == 0, hv013, hv012)*hv005/1e+06) %>% 
   preprocess_dhsfactors_adj()
+## Clean data
+library(dplyr)
+
 
 if(nrow(dhs) != nrow(hh))
   stop("Error: No. observations in original DHS dataset must match no. observations in the 
         cleaned HH DHS file. Check cleandata_CY.R file for filtering steps and add them here.")
 
-ind_subset <- haven::read_dta(ind_path) %>% 
+ind_subset <- haven::read_dta(ind_path) 
+
+
+%>% 
   clean_individual_dhs()
 
 # Assign missing labels to multicat variables
@@ -183,7 +189,7 @@ merged_dhs <- hh %>%
         by.y=c("v001", "v002"), all.y=FALSE)
 
 ## Write out data for association of DHS cluster and our clusters
-write_csv(merged_dhs,file="/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubbardlap/grantproposals/Data Science in Africa/Project 1/EcoClustGit/EcoClustering_Project/data/DataforAlan/SouthAfrica.csv")
+write_csv(merged_dhs,file="/Users/hubbard/UC Berkeley Biostat Dropbox/Alan Hubbard/hubbardlap/grantproposals/Data Science in Africa/Project 1/EcoClustGit/EcoClustering_Project/data/DataforAlan/Uganda.csv")
 ```
 
 ### merged_dhs has all the variables I need for the comparison of our clusters to DHS. "id" is the cluster number.

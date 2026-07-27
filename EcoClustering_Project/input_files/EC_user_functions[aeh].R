@@ -518,7 +518,7 @@ create_label_df <- function(labelled_dhs_df){
 
 clean_individual_dhs <- function(ind_dhs){
   
-  ind_vars <- c("v001", "v002", "v005","v190")
+  ind_vars <- c("v001", "v002", "v005","v190","v191")
   
   if(c("v149") %in% names(ind_dhs)){
     ind_vars <- c(ind_vars, "v149")
@@ -530,7 +530,7 @@ clean_individual_dhs <- function(ind_dhs){
     ind_dhs$de_cat = cut(ind_dhs$deceas, 
                          breaks = c(-0.01,0.00001,0.3399,0.6699,1),
                          labels = c("0%", "1-33%", "34-66%", "67+%"))
-    ind_vars <- c(ind_vars, "deceas", "de_cat")
+    ind_vars <- c("caseid",ind_vars, "deceas", "de_cat")
   }
   
   if(all(c("v326") %in% names(ind_dhs))){
