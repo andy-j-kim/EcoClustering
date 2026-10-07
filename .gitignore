@@ -5,3 +5,18 @@
 .positai
 .DS_Store
 **/.DS_Store
+
+# --- DHS microdata: never commit ---------------------------------------------
+# The DHS Program's terms of use forbid redistributing micro-level data.
+# Download the recode files yourself (see README) into
+# EcoClustering_Project/data/dhs/.
+*.DTA
+*.dta
+EcoClustering_Project/data/dhs/
+EcoClustering_Project/data/cleaned/
+EcoClustering_Project/data/validation_cache/
+EcoClustering_Project/data/DataForAlan/*.csv
+EcoClustering_Project/R/LikelihoodCluster/*.rds
+EcoClustering_Project/cleaned_*.rds
+# knitr caches hold copies of the data each report loaded
+*_cache/
